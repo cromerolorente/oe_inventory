@@ -1,0 +1,209 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load humanize %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <form method="POST" action="{% url 'frm_licenses' %}">
+        {% csrf_token %}
+
+        <div class="row g-3">
+            <div class="col-xl-5 col-lg-12 col-md-12">
+                <div class="card shadow-sm p-3 bg-white mb-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Licenses</h5>
+                        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3">
+                            <i class="bi bi-box-arrow-right"></i> Exit
+                        </a>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 border-end pe-md-4">
+                            <label class="form-label fw-bold small mb-1">Serial Number (SN)</label>
+                            <div class="input-group mb-2">
+                                <input type="text" id="input-serial" class="form-control form-control-sm" name="serial_number"
+                                    maxlength="50" placeholder="Put a SN and press Enter or Find."
+                                    onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarLicenciaAjax(); }"
+                                    oninput="limpiarFormularioLicencia()">
+                                <button type="button" class="btn p-0 border-0 ms-2" title="Find License"
+                                    onclick="FrmFinder.open('input-serial', 'buscarLicenciaAjax', 'serial_number', 'licenses')">
+                                    <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                                </button>
+                            </div>
+
+                            <label class="form-label small mb-1">Company</label>
+                            <select id="select-company" class="form-select form-select-sm mb-2" name="company">
+                                <option value="">-- Company Selection --</option>
+                                {% for c in companies %}<option value="{{ c.id_company }}">{{ c.name }}</option>{% endfor %}
+                            </select>
+
+                            <label class="form-label small mb-1">Type</label>
+                            <input type="text" id="input-type" class="form-control form-control-sm mb-2" name="type"
+                                list="type-options" maxlength="50" autocomplete="off">
+                            <datalist id="type-options">
+                                {% for t in type_options %}<option value="{{ t }}"></option>{% endfor %}
+                            </datalist>
+
+                            <label class="form-label small mb-1">Origin</label>
+                            <input type="text" id="input-origin" class="form-control form-control-sm mb-2" name="origin"
+                                list="origin-options" maxlength="50" autocomplete="off">
+                            <datalist id="origin-options">
+                                {% for o in origin_options %}<option value="{{ o }}"></option>{% endfor %}
+                            </datalist>
+                        </div>
+
+                        <div class="col-md-6 ps-md-4">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Insert Date</label>
+                                    <input type="date" id="input-date" class="form-control form-control-sm mb-2" name="insert_date">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Value (€)</label>
+                                    <input type="number" id="input-value" step="0.01" class="form-control form-control-sm mb-2" name="value" value="0">
+                                </div>
+                            </div>
+
+                            <label class="form-label small mb-1">Obs</label>
+                            <input type="text" id="input-obs" class="form-control form-control-sm mb-2" name="obs" maxlength="200">
+
+                            <label class="form-label small mb-1">Bill Number</label>
+                            <input type="text" id="input-bill" class="form-control form-control-sm mb-2" name="bill_number" maxlength="25">
+
+                            <label class="form-label small mb-1">Assigned to (Staff)</label>
+                            <input type="text" id="input-person" class="form-control form-control-sm bg-light" value="Unassigned" readonly>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top d-flex gap-3 align-items-center">
+                        <button type="submit" name="action" value="save" class="btn p-0 border-0" title="Save License Data">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear License Data"
+                            onclick="document.getElementById('input-serial').value=''; limpiarFormularioLicencia();">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary by license type -->
+            <div class="col-xl-4 col-lg-6 col-md-12">
+                <div class="card shadow-sm p-3 bg-white mb-3 h-100">
+                    <h6 class="fw-bold mb-2" style="color: #FF48D8;"><i class="bi bi-table"></i> Licenses by Type</h6>
+                    <div class="table-responsive app-surface" style="max-height: 340px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle border-bottom mb-0">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Type</th>
+                                    <th class="text-end">Purchased</th>
+                                    <th class="text-end">Expired</th>
+                                    <th class="text-end">In Use</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in license_summary %}
+                                <tr>
+                                    <td>{{ s.type }}</td>
+                                    <td class="text-end">{{ s.purchased }}</td>
+                                    <td class="text-end">{{ s.expired }}</td>
+                                    <td class="text-end fw-bold">{{ s.in_use }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-lg-6 col-md-12">
+                <div class="card text-white text-end p-2 mb-2 shadow-sm">
+                    <div class="small text-muted text-uppercase">Total Licenses</div>
+                    <h3 class="mb-0 text-info fw-bold">{{ total_licenses|default:0|intcomma }}</h3>
+                </div>
+                <div class="card text-white text-end p-2 mb-2 shadow-sm">
+                    <div class="small text-muted text-uppercase">Total Value</div>
+                    <h3 class="mb-0 text-info fw-bold">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h3>
+                </div>
+
+                <div class="card shadow-sm p-3 bg-white">
+                    <label class="form-label fw-bold text-secondary small"><i class="bi bi-journal-text"></i> History / Internal Notes</label>
+                    <textarea class="form-control form-control-sm bg-light" id="textarea-notes" name="notes" rows="5"
+                        placeholder="Automated system history..." readonly></textarea>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Licenses Inventory</h5>
+                    <a href="?export=excel" class="btn p-0 border-0" title="Send grid data to an Excel file">
+                        <img src="/static/buttons/send_to_excel.png" alt="Export to Excel" style="width: 24px; height: 24px; display: block;">
+                    </a>
+                </div>
+
+                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto;">
+                    <table id="tabla-licencias" class="table table-sm table-hover align-middle table-borderless border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Serial Number</th><th>Company</th><th>Type</th><th>Origin</th>
+                                <th>Insert Date</th><th>Person</th><th>Obs</th>
+                                <th class="text-end">Value</th><th>Bill Number</th>
+                            </tr>
+                        </thead>
+                        <tbody id="license-table-body">
+                            {% for item in grid_data %}
+                            <tr class="license-row" style="cursor: pointer;"
+                                data-serial="{{ item.serial_number }}"
+                                data-company="{% if item.company %}{{ item.company.id_company }}{% endif %}"
+                                data-type="{{ item.type|default:'' }}" data-origin="{{ item.origin|default:'' }}"
+                                data-date="{{ item.insert_date|date:'Y-m-d' }}"
+                                data-person="{% if item.persone %}{{ item.persone.name }}{% else %}Unassigned{% endif %}"
+                                data-obs="{{ item.obs|default:'' }}" data-value="{{ item.value|default:'0' }}"
+                                data-bill="{{ item.bill_number|default:'' }}" data-notes="{{ item.notes|default:'' }}">
+                                <td>{{ item.serial_number }}</td>
+                                <td>{% if item.company %}{{ item.company.name }}{% endif %}</td>
+                                <td>{{ item.type|default:'-' }}</td>
+                                <td>{{ item.origin|default:'-' }}</td>
+                                <td>{{ item.insert_date|date:'d-m-Y' }}</td>
+                                <td>{% if item.persone %}{{ item.persone.name }}{% else %}-{% endif %}</td>
+                                <td>{{ item.obs|default:'-' }}</td>
+                                <td class="text-end">{{ item.value|default:'0' }} €</td>
+                                <td>{{ item.bill_number|default:'-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+<script src="{% static 'js/licenses.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

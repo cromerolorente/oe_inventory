@@ -1,0 +1,192 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container-fluid py-3 bg-light min-vh-85 app-surface">
+    <form method="POST" action="{% url 'frm_users' %}" id="form-usuarios">
+        {% csrf_token %}
+        <input type="hidden" id="input-is-new" name="is_new" value="0">
+
+        <div class="row g-3">
+            <div class="col-xl-4 col-lg-5 col-md-12">
+                <div class="card shadow-sm p-3 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Users Control
+                        </h5>
+                        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i
+                                class="bi bi-box-arrow-right"></i> Exit</a>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Login</label>
+                        <div class="input-group">
+                            <input type="text" id="input-login" name="login" class="form-control form-control-sm"
+                                value="{{ user.login|default:'' }}" maxlength="15" placeholder="Login ID..."
+                                onkeydown="if(event.keyCode === 13) { event.preventDefault(); buscarUsuarioAjax(); }"
+                                oninput="desactivarFormulario()"> 
+
+                            <button type="button" class="btn p-0 border-0 ms-2" title="Find User"
+                                onclick="FrmFinder.open('input-login', 'buscarUsuarioAjax', 'nombre', 'users')">
+                                <img src="/static/buttons/find.png" alt="Find"
+                                    style="width: 24px; height: 24px; display: block;">
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Name</label>
+                        <input type="text" id="input-nombre" name="nombre" class="form-control form-control-sm"
+                            maxlength="50" disabled>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold mb-1">Email</label>
+                        <input type="email" id="input-email" name="email" class="form-control form-control-sm"
+                            maxlength="254" placeholder="user@example.com" disabled>
+                        <div class="form-text" style="font-size: 0.65rem;">Required to use "Forgot my password".</div>
+                    </div>
+                    <div class="mb-2">
+                        <label for="input-password" class="form-label fw-bold text-secondary mb-0">Password</label>
+                        <input type="text" class="form-control bg-light" id="input-password" name="password"
+                            value="********" readonly placeholder="Set an initial password" style="font-size: 0.75rem;">
+                        <div class="form-text" style="font-size: 0.65rem;">Editable only for new users or accounts without a password. Existing passwords are reset via "Forgot my password".
+                        </div>
+                    </div>
+
+                    <label class="form-label fw-bold border-bottom pb-1 w-100 mb-2 text-secondary">
+                        <i class="bi bi-shield-lock"></i> Application Permits
+                    </label>
+
+                    <div class="border rounded p-3 bg-light">
+                        <div class="row g-2">
+                            {% for campo, etiqueta in permits %}
+                            <div class="col-md-4 col-6">
+                                <div class="form-check form-switch mb-1">
+                                    <input class="form-check-input chk-permiso" type="checkbox"
+                                        name="permiso_{{ campo }}" id="permiso-{{ campo }}" value="1" disabled>
+                                    <label class="form-check-label fw-semibold" for="permiso-{{ campo }}">{{ etiqueta }}</label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-xl-4 col-lg-5 col-md-12">
+                <div class="card shadow-sm p-3 bg-white mb-3">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-dark mb-1">Company</label>
+                            <div class="table-responsive border rounded bg-white"
+                                style="max-height: 160px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0" id="tabla-companias">
+                                    <tbody id="body-companies">
+                                        {% for c in companies %}
+                                        <tr>
+                                            <td style="width: 30px;" class="text-center">
+                                                <input type="checkbox" name="companies_selected"
+                                                    value="{{ c.id_company }}" class="form-check-input grid-chk"
+                                                    data-raw="{{ c.id_company }}" disabled>
+                                            </td>
+                                            <td>{{ c.name }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-dark mb-1">Delegation</label>
+                            <div class="table-responsive border rounded bg-white"
+                                style="max-height: 160px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0" id="tabla-delegaciones">
+                                    <tbody id="body-delegations">
+                                        {% for d in delegations %}
+                                        <tr>
+                                            <td style="width: 30px;" class="text-center">
+                                                <input type="checkbox" name="delegations_selected"
+                                                    value="{{ d.id_delegation }}" class="form-check-input grid-chk"
+                                                    data-raw="{{ d.id_delegation }}" disabled>
+                                            </td>
+                                            <td>{{ d.delegation }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-dark mb-1">Department</label>
+                            <div class="table-responsive border rounded bg-white"
+                                style="max-height: 160px; overflow-y: auto;">
+                                <table class="table table-sm table-hover mb-0" id="tabla-departamentos">
+                                    <tbody id="body-departments">
+                                        {% for dep in departments %}
+                                        <tr>
+                                            <td style="width: 30px;" class="text-center">
+                                                <input type="checkbox" name="departments_selected"
+                                                    value="{{ dep.department }}" class="form-check-input grid-chk"
+                                                    data-raw="{{ dep.department }}" disabled>
+                                            </td>
+                                            <td>{{ dep.department }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label fw-bold text-secondary mb-1"><i class="bi bi-journal-text"></i> User
+                            Audit Log / Internal Notes</label>
+                        <textarea class="form-control bg-light" id="textarea-notes" name="notes" rows="6"
+                            style="font-size: 0.75rem; font-family: monospace;" readonly></textarea>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top d-flex gap-3">
+                        <button type="submit" id="btn-save" class="btn p-0 border-0" title="Save User">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+
+                        <button type="button" id="btn-clear" class="btn p-0 border-0" title="Clear / Deactivate"
+                            onclick="desactivarFormulario()" disabled>
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="{% static 'js/users.js' %}"></script>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        {% for message in messages %}
+            Swal.fire({
+            title: 'OE Inventory', 
+            text: '{{ message }}',
+            imageUrl: '/static/octopus.png', 
+            imageWidth: 35,
+            imageHeight: 35,
+            imageAlt: 'Octopus Logo',
+            icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% else %}info{% endif %}',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

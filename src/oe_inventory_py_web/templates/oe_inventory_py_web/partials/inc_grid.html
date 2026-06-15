@@ -1,0 +1,27 @@
+{# Incorporations grid. Params: rows, table_id, clickable #}
+<div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 520px); min-height: 200px; overflow-y: auto;">
+    <table id="{{ table_id }}" class="table table-sm table-hover align-middle border-bottom">
+        <thead class="table-dark sticky-top">
+            <tr>
+                <th>ID</th><th>Name</th><th>Company</th><th>Department</th><th>Delegation</th><th>Date</th>
+                <th>WIN</th><th>MBA</th><th>MBP</th><th>Phone</th><th>Screen</th><th>Mouse</th><th>Keyboard</th>
+                <th>CordedH</th><th>CordlessH</th><th>USB-C</th><th>PDF</th><th>ACAD</th><th>Send</th><th>Receive</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr {% if clickable %}class="inc-row" style="cursor: pointer;"{% endif %} data-id="{{ row.id }}">
+                <td>{{ row.id }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.company }}</td>
+                <td>{{ row.department }}</td>
+                <td>{{ row.delegation }}</td>
+                <td>{{ row.date|date:'d-m-Y' }}</td>
+                {% for f in row.flags %}
+                <td class="text-center">{% if f %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

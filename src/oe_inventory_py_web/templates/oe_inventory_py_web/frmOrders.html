@@ -1,0 +1,124 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Orders</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-order" value="{{ preselected_id }}">
+
+    <div class="card shadow-sm p-3 bg-white mb-3">
+        <form method="POST" action="{% url 'frm_orders' %}" id="form-order">
+            {% csrf_token %}
+            <input type="hidden" name="action" id="input-action" value="save">
+            <input type="hidden" name="code" id="input-code-hidden" value="">
+
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">ID</label>
+                    <input type="text" id="input-code" class="form-control form-control-sm" maxlength="11"
+                        placeholder="ID + Enter"
+                        onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarPedidoAjax(); }">
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label small mb-1">Article</label>
+                    <input type="text" id="input-article" name="article" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label small mb-1">Uds</label>
+                    <input type="number" id="input-uds" name="uds" class="form-control form-control-sm" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Date</label>
+                    <input type="date" id="input-date" name="insert_date" class="form-control form-control-sm">
+                </div>
+            </div>
+
+            <label class="form-label small mb-1 mt-2">Notes</label>
+            <textarea id="textarea-notes" name="notes" class="form-control form-control-sm bg-light" rows="3" readonly></textarea>
+
+            <div class="mt-3 pt-2 border-top d-flex gap-3 align-items-center">
+                <button type="button" id="btn-save" class="btn p-0 border-0" title="Save order" onclick="guardarPedido()">
+                    <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                </button>
+                <button type="button" id="btn-clear" class="btn p-0 border-0" title="Clear form" onclick="limpiarPedido()">
+                    <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                </button>
+                <span class="vr"></span>
+                <button type="button" id="btn-cancel" class="btn p-0 border-0" title="Cancel order" onclick="cancelarPedido()">
+                    <img src="/static/buttons/cancelled.png" alt="Cancel" style="width: 24px; height: 24px;">
+                </button>
+                <button type="button" id="btn-process" class="btn p-0 border-0" title="Process order" onclick="procesarPedido()">
+                    <img src="/static/buttons/processed.png" alt="Process" style="width: 24px; height: 24px;">
+                </button>
+                <button type="button" id="btn-receive" class="btn p-0 border-0" title="Receive order" onclick="recibirPedido()">
+                    <img src="/static/buttons/received.png" alt="Receive" style="width: 24px; height: 24px;">
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <ul class="nav nav-tabs" id="ordersTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-pending-btn" data-bs-toggle="tab" data-bs-target="#tab-pending" type="button" role="tab">Pending</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-canceled-btn" data-bs-toggle="tab" data-bs-target="#tab-canceled" type="button" role="tab">Canceled</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-received-btn" data-bs-toggle="tab" data-bs-target="#tab-received" type="button" role="tab">Received</button>
+        </li>
+    </ul>
+    <div class="tab-content border border-top-0 rounded-bottom bg-white p-3">
+        <div class="tab-pane fade show active" id="tab-pending" role="tabpanel">
+            <div class="d-flex justify-content-end mb-2">
+                <a href="?export=excel&tab=pending" class="btn p-0 border-0" title="Export to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
+            {% include 'oe_inventory_py_web/partials/order_grid.html' with rows=pending_rows table_id='tabla-pending' show_processed=True %}
+        </div>
+        <div class="tab-pane fade" id="tab-canceled" role="tabpanel">
+            <div class="d-flex justify-content-end mb-2">
+                <a href="?export=excel&tab=canceled" class="btn p-0 border-0" title="Export to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
+            {% include 'oe_inventory_py_web/partials/order_grid.html' with rows=canceled_rows table_id='tabla-canceled' show_processed=False %}
+        </div>
+        <div class="tab-pane fade" id="tab-received" role="tabpanel">
+            <div class="d-flex justify-content-end mb-2">
+                <a href="?export=excel&tab=received" class="btn p-0 border-0" title="Export to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
+            {% include 'oe_inventory_py_web/partials/order_grid.html' with rows=received_rows table_id='tabla-received' show_processed=False %}
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/orders.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

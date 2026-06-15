@@ -1,0 +1,304 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Staff</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-staff" value="{{ preselected_staff_id }}">
+
+    <ul class="nav nav-tabs" id="staffTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-general-btn" data-bs-toggle="tab" data-bs-target="#tab-general"
+                type="button" role="tab">General</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-docs-btn" data-bs-toggle="tab" data-bs-target="#tab-docs"
+                type="button" role="tab">Docs</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-list-btn" data-bs-toggle="tab" data-bs-target="#tab-list"
+                type="button" role="tab">List</button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 rounded-bottom bg-white p-3">
+
+        <!-- ============================ GENERAL ============================ -->
+        <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
+            <form method="POST" action="{% url 'frm_staff' %}" id="form-staff">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="input-action" value="save">
+                <input type="hidden" name="code" id="input-code-hidden" value="">
+                <input type="hidden" name="item_id" id="input-item-id" value="">
+                <input type="hidden" name="serial" id="input-item-serial" value="">
+                <input type="hidden" name="returned_items" id="input-returned-items" value="">
+
+                <div class="row g-3">
+                    <!-- Left: fields -->
+                    <div class="col-lg-5">
+                        <label class="form-label fw-bold mb-1">ID</label>
+                        <div class="input-group mb-2">
+                            <input type="text" id="input-code" class="form-control form-control-sm" maxlength="11"
+                                placeholder="Staff ID + Enter, or use Find"
+                                onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarStaffAjax(); }">
+                            <button type="button" class="btn p-0 border-0 ms-2" title="Find Staff"
+                                onclick="FrmFinder.open('input-code', 'buscarStaffAjax', 'name', 'staff')">
+                                <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                            </button>
+                        </div>
+
+                        <label class="form-label fw-bold mb-1">Name</label>
+                        <input type="text" id="input-name" name="name" class="form-control form-control-sm mb-2" maxlength="100">
+
+                        <label class="form-label mb-1">Department</label>
+                        <input type="text" id="input-department" name="department" class="form-control form-control-sm mb-2"
+                            list="department-options" maxlength="25" autocomplete="off">
+                        <datalist id="department-options">
+                            {% for dep in departments %}<option value="{{ dep }}"></option>{% endfor %}
+                        </datalist>
+
+                        <label class="form-label mb-1">Company</label>
+                        <select id="select-company" name="company" class="form-select form-select-sm mb-2">
+                            <option value="">-- Company --</option>
+                            {% for c in companies %}<option value="{{ c.id_company }}">{{ c.name }}</option>{% endfor %}
+                        </select>
+
+                        <label class="form-label mb-1">Delegation</label>
+                        <select id="select-delegation" name="delegation" class="form-select form-select-sm mb-2">
+                            <option value="">-- Delegation --</option>
+                            {% for d in delegations %}<option value="{{ d.id_delegation }}">{{ d.delegation }}</option>{% endfor %}
+                        </select>
+
+                        <label class="form-label mb-1">eMail</label>
+                        <input type="email" id="input-email" name="email" class="form-control form-control-sm mb-2" maxlength="100">
+
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label mb-1">Incorporation date</label>
+                                <input type="text" id="input-fecha-inc" name="fecha_incorporacion"
+                                    class="form-control form-control-sm mb-2" maxlength="10" placeholder="YYYY-MM-DD">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label mb-1">Termination date</label>
+                                <input type="text" id="input-fecha-baja" class="form-control form-control-sm mb-2 bg-light"
+                                    maxlength="10" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="check-persona" name="persona_fisica" value="1">
+                            <label class="form-check-label fw-semibold" for="check-persona">Natural Person</label>
+                        </div>
+                    </div>
+
+                    <!-- Center: notes -->
+                    <div class="col-lg-4">
+                        <label class="form-label fw-bold mb-1"><i class="bi bi-journal-text"></i> Notes / Audit Log</label>
+                        <textarea class="form-control form-control-sm bg-light" id="textarea-notes" name="notes"
+                            rows="13" readonly></textarea>
+                    </div>
+
+                    <!-- Right: totals -->
+                    <div class="col-lg-3">
+                        <div class="card text-end p-3 mb-2 shadow-sm">
+                            <div class="small text-muted text-uppercase">Assigned items</div>
+                            <h2 class="mb-0 text-info fw-bold" id="lbl-devices">0</h2>
+                        </div>
+                        <div class="card text-end p-3 shadow-sm">
+                            <div class="small text-muted text-uppercase">Total value</div>
+                            <h2 class="mb-0 text-info fw-bold"><span id="lbl-value">0,00</span> €</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="mt-3 pt-2 border-top d-flex gap-3 align-items-center flex-wrap">
+                    <button type="button" id="btn-save" class="btn p-0 border-0" title="Save staff data" onclick="guardarStaff()">
+                        <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-clear" class="btn p-0 border-0" title="Clear form" onclick="limpiarStaff()">
+                        <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-gendoc" class="btn p-0 border-0" title="Generate inventory PDF" onclick="generarDocStaff()">
+                        <img src="/static/buttons/generate_doc.png" alt="Generate doc" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-sendmail" class="btn p-0 border-0" title="Email inventory to People Dept." onclick="enviarMailStaff()">
+                        <img src="/static/buttons/send_email.png" alt="Send email" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-terminate" class="btn p-0 border-0" title="Mark contract as completed" onclick="terminarStaff()">
+                        <img src="/static/buttons/terminate_employ.png" alt="Terminate" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-release" class="btn p-0 border-0 ms-auto" title="Unassign the selected item" onclick="liberarItem()">
+                        <img src="/static/buttons/release.png" alt="Release" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-excel" class="btn p-0 border-0 export-excel" title="Export assigned items to Excel" onclick="excelStaff()">
+                        <img src="/static/buttons/send_to_excel.png" alt="Excel" style="width: 24px; height: 24px;">
+                    </button>
+                </div>
+            </form>
+
+            <!-- Assigned items grid -->
+            <div class="table-responsive mt-3 app-surface" style="max-height: calc(100vh - 500px); min-height: 200px; overflow-y: auto;">
+                <table class="table table-sm table-hover align-middle border-bottom" id="tabla-items">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>ID</th><th>Serial</th><th>Type</th><th>Brand</th><th>Model</th>
+                            <th>Origin</th><th>Date</th><th>Obs</th><th class="text-end">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-staff-items">
+                        <tr><td colspan="9" class="text-center text-muted py-3">No staff loaded.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============================ DOCS ============================ -->
+        <div class="tab-pane fade" id="tab-docs" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold mb-1">Saved documents</label>
+                    <div class="table-responsive border rounded" style="max-height: 220px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <tbody id="body-docs">
+                                <tr><td class="text-center text-muted py-3">No staff loaded.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <form method="POST" action="{% url 'frm_staff' %}" enctype="multipart/form-data" id="form-doc" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="upload_doc">
+                        <input type="hidden" name="code" id="input-code-doc" value="">
+                        <label class="form-label fw-bold mb-1">Add a new document (PDF)</label>
+                        <input type="file" name="doc_file" accept="application/pdf" class="form-control form-control-sm mb-2" required>
+                        <div class="input-group">
+                            <input type="text" name="doc_name" class="form-control form-control-sm" placeholder="Document name" required>
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" id="btn-save-doc">Save Doc</button>
+                        </div>
+                        <div class="form-text">Load a staff member in the General tab before uploading.</div>
+                    </form>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label fw-bold mb-1">Preview</label>
+                    <iframe id="doc-viewer" title="Document preview" class="w-100 border rounded"
+                        style="height: calc(100vh - 220px); min-height: 420px;"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================ LIST ============================ -->
+        <div class="tab-pane fade" id="tab-list" role="tabpanel">
+            <div class="d-flex gap-4 mb-2">
+                <span class="fw-bold" style="color: #FF48D8;">People: {{ people_count|intcomma }}</span>
+                <span class="fw-bold" style="color: #FF48D8;">Actives: {{ active_count|intcomma }}</span>
+            </div>
+            <div class="table-responsive app-surface" style="max-height: calc(100vh - 230px); min-height: 200px; overflow-y: auto;">
+                <table id="tabla-staff" class="table table-sm table-hover align-middle border-bottom">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>ID</th><th>Inc. Date</th><th>Name</th><th>Department</th><th>Company</th>
+                            <th class="text-center">Active</th><th class="text-center">P.Fis</th>
+                            <th>Delegation</th><th>eMail</th><th>Obs</th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-staff-list">
+                        {% for s in staff_list %}
+                        <tr class="staff-row" style="cursor: pointer;" data-id="{{ s.id_staff }}">
+                            <td>{{ s.id_staff }}</td>
+                            <td>{{ s.fecha_incorporacion|default:'' }}</td>
+                            <td>{{ s.name }}</td>
+                            <td>{{ s.department|default:'' }}</td>
+                            <td>{% if s.company %}{{ s.company.name }}{% endif %}</td>
+                            <td class="text-center">{% if s.state == 1 %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                            <td class="text-center">{% if s.persona_fisica == 1 %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                            <td>{% if s.delegation %}{{ s.delegation.delegation }}{% endif %}</td>
+                            <td>{{ s.email|default:'' }}</td>
+                            <td>{{ s.obs|default:'' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden form to email the report -->
+    <form method="POST" action="{% url 'staff_email_report' %}" id="form-email" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="staff" id="input-email-staff" value="">
+    </form>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+<!-- Terminate (offboarding) modal: pick the items the person returns -->
+<div class="modal fade" id="terminateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" style="color: #FF48D8;">
+                    <i class="bi bi-box-arrow-in-down"></i> Terminate &mdash; items returned
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">
+                    Tick the items the person is returning. Checked items go back to stock (freed for
+                    reassignment), the contract is marked as terminated, and a <strong>Terminate</strong>
+                    document (PDF) is saved to this person's documents.
+                </p>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="chk-return-all" onclick="toggleAllReturns(this)">
+                    <label class="form-check-label fw-semibold" for="chk-return-all">Select all</label>
+                </div>
+                <div class="table-responsive app-surface" style="max-height: 50vh; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th class="text-center">Returned</th>
+                                <th>ID</th><th>Serial</th><th>Type</th><th>Brand</th><th>Model</th>
+                            </tr>
+                        </thead>
+                        <tbody id="body-terminate-items"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm text-white" style="background-color: #FF48D8;"
+                    onclick="confirmarTerminate()">
+                    <i class="bi bi-check-lg"></i> Terminate &amp; generate document
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/staff.js' %}?v=20260612terminate"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

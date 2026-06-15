@@ -1,0 +1,46 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Availability</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <div class="card shadow-sm p-3 bg-white">
+        <div class="d-flex justify-content-end mb-2">
+            <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
+                <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+            </a>
+        </div>
+        <div class="table-responsive app-surface" style="max-height: calc(100vh - 250px); min-height: 200px; overflow-y: auto;">
+            <table id="tabla-availability" class="table table-sm table-hover align-middle border-bottom">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>Article</th>
+                        <th class="text-center">Stock</th>
+                        <th class="text-center">Needs</th>
+                        <th class="text-center">Orders</th>
+                        <th class="text-center">Disp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td>{{ r.article }}</td>
+                        <td class="text-center">{{ r.stock }}</td>
+                        <td class="text-center">{{ r.needs }}</td>
+                        <td class="text-center">{{ r.orders }}</td>
+                        <td class="text-center fw-bold {% if r.positive %}text-success{% else %}text-danger{% endif %}">{{ r.disp }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/availability.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Incorporations</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-inc" value="{{ preselected_id }}">
+
+    <div class="row g-3">
+        <!-- ===================== FORM ===================== -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow-sm p-3 bg-white">
+                <form method="POST" action="{% url 'frm_incorporations' %}" id="form-inc">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" id="input-action" value="save">
+                    <input type="hidden" name="code" id="input-code-hidden" value="">
+                    <input type="hidden" name="agency" id="input-agency" value="">
+
+                    <label class="form-label fw-bold mb-1">ID</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="input-code" class="form-control form-control-sm" maxlength="11"
+                            placeholder="ID + Enter, or click a row"
+                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarIncorporacionAjax(); }">
+                    </div>
+
+                    <label class="form-label small mb-1">Name</label>
+                    <input type="text" id="input-name" name="name" class="form-control form-control-sm mb-2" maxlength="50">
+
+                    <label class="form-label small mb-1">Company</label>
+                    <select id="select-company" name="company" class="form-select form-select-sm mb-2">
+                        <option value="">-- Company --</option>
+                        {% for c in companies %}<option value="{{ c.id_company }}">{{ c.name }}</option>{% endfor %}
+                    </select>
+
+                    <label class="form-label small mb-1">Department</label>
+                    <input type="text" id="input-department" name="department" class="form-control form-control-sm mb-2"
+                        list="department-options" maxlength="50" autocomplete="off">
+                    <datalist id="department-options">
+                        {% for dep in departments %}<option value="{{ dep }}"></option>{% endfor %}
+                    </datalist>
+
+                    <div class="row">
+                        <div class="col-7">
+                            <label class="form-label small mb-1">Delegation</label>
+                            <select id="select-delegation" name="delegation" class="form-select form-select-sm mb-2">
+                                <option value="">-- Delegation --</option>
+                                {% for d in delegations %}<option value="{{ d.id_delegation }}">{{ d.delegation }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small mb-1">Date</label>
+                            <input type="date" id="input-date" name="insert_date" class="form-control form-control-sm mb-2">
+                        </div>
+                    </div>
+
+                    <label class="form-label small mb-1">Address (remote)</label>
+                    <textarea id="textarea-address" name="direccion" class="form-control form-control-sm mb-2" rows="2"></textarea>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="border rounded p-2 mb-2">
+                                <div class="fw-semibold small mb-1">Laptop</div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="laptop" id="lap-none" value="" checked><label class="form-check-label small" for="lap-none">None</label></div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="laptop" id="lap-win" value="win"><label class="form-check-label small" for="lap-win">WIN Laptop</label></div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="laptop" id="lap-mba" value="mba"><label class="form-check-label small" for="lap-mba">MBA Laptop</label></div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="laptop" id="lap-mbp" value="mbp"><label class="form-check-label small" for="lap-mbp">MBP Laptop</label></div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-2 mb-2">
+                                <div class="fw-semibold small mb-1">Headset</div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="headset" id="hs-none" value="" checked><label class="form-check-label small" for="hs-none">None</label></div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="headset" id="hs-corded" value="corded"><label class="form-check-label small" for="hs-corded">Corded</label></div>
+                                <div class="form-check"><input class="form-check-input" type="radio" name="headset" id="hs-cordless" value="cordless"><label class="form-check-label small" for="hs-cordless">Cordless</label></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border rounded p-2 mb-2">
+                        <div class="row g-1">
+                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="phone" id="chk-phone" value="1"><label class="form-check-label small" for="chk-phone">Phone</label></div>
+                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="usbchub" id="chk-usbchub" value="1"><label class="form-check-label small" for="chk-usbchub">USB-C HUB</label></div>
+                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="screen" id="chk-screen" value="1"><label class="form-check-label small" for="chk-screen">Screen</label></div>
+                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="pdf" id="chk-pdf" value="1"><label class="form-check-label small" for="chk-pdf">PDF</label></div>
+                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="mouse" id="chk-mouse" value="1"><label class="form-check-label small" for="chk-mouse">Mouse</label></div>
+                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="acad" id="chk-acad" value="1"><label class="form-check-label small" for="chk-acad">ACAD</label></div>
+                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="keyboard" id="chk-keyboard" value="1"><label class="form-check-label small" for="chk-keyboard">Keyboard</label></div>
+                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="descartado" id="chk-descartado" value="1"><label class="form-check-label small" for="chk-descartado">Discarded</label></div>
+                        </div>
+                    </div>
+
+                    <label class="form-label small mb-1">Notes</label>
+                    <textarea id="textarea-notes" name="notes" class="form-control form-control-sm bg-light mb-2" rows="4" readonly></textarea>
+
+                    <div class="pt-2 border-top d-flex gap-3 align-items-center flex-wrap">
+                        <button type="button" class="btn p-0 border-0" title="Save" onclick="guardarIncorporacion()">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear" onclick="limpiarIncorporacion()">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Send devices (remote)" onclick="enviarIncorporacion()">
+                            <img src="/static/buttons/send.png" alt="Send" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Receive devices" onclick="recibirIncorporacion()">
+                            <img src="/static/buttons/received2.png" alt="Receive" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0 ms-auto" title="Complete incorporation (migrate to Staff)" onclick="completarIncorporacion()">
+                            <img src="/static/buttons/release.png" alt="Complete" style="width: 24px; height: 24px;">
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ===================== GRIDS ===================== -->
+        <div class="col-xl-8 col-lg-7">
+            <ul class="nav nav-tabs" id="incTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-pending-btn" data-bs-toggle="tab" data-bs-target="#tab-pending" type="button" role="tab">Pending</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-discarded-btn" data-bs-toggle="tab" data-bs-target="#tab-discarded" type="button" role="tab">Discarded</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-incorporated-btn" data-bs-toggle="tab" data-bs-target="#tab-incorporated" type="button" role="tab">Incorporated</button>
+                </li>
+            </ul>
+            <div class="tab-content border border-top-0 rounded-bottom bg-white p-3">
+                <div class="tab-pane fade show active" id="tab-pending" role="tabpanel">
+                    <div class="d-flex justify-content-end mb-2">
+                        <a href="?export=excel&tab=pending" class="btn p-0 border-0" title="Export to Excel">
+                            <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                        </a>
+                    </div>
+                    {% include 'oe_inventory_py_web/partials/inc_grid.html' with rows=pending_rows table_id='tabla-pending' clickable=True %}
+                </div>
+                <div class="tab-pane fade" id="tab-discarded" role="tabpanel">
+                    <div class="d-flex justify-content-end mb-2">
+                        <a href="?export=excel&tab=discarded" class="btn p-0 border-0" title="Export to Excel">
+                            <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                        </a>
+                    </div>
+                    {% include 'oe_inventory_py_web/partials/inc_grid.html' with rows=discarded_rows table_id='tabla-discarded' clickable=False %}
+                </div>
+                <div class="tab-pane fade" id="tab-incorporated" role="tabpanel">
+                    <div class="d-flex justify-content-end mb-2">
+                        <a href="?export=excel&tab=incorporated" class="btn p-0 border-0" title="Export to Excel">
+                            <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                        </a>
+                    </div>
+                    {% include 'oe_inventory_py_web/partials/inc_grid.html' with rows=incorporated_rows table_id='tabla-incorporated' clickable=True %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/incorporations.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

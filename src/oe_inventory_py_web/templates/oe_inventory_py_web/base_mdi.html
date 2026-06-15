@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   
+    {% load static %}
+    <link rel="icon" type="image/png" href="/static/octopus.png">
+    <title>OE Inventory - Main Menu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet"
+        integrity="sha384-l4UPAMHGzl7zwogLW4nOwaU2XTk6oiM1jhCRQstZEndoIiA2I5bg6fST3wzBSRBD" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"
+        integrity="sha384-5oFfLntNy8kuC2TaebWZbaHTqdh3Q+7PwYbB490gupK0YtTAB7mBJGv4bQl9g9rK" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.7.0.js"
+        integrity="sha384-ogycHROOTGA//2Q8YUfjz1Sr7xMOJTUmY2ucsPVuXAg4CtpgQJQzGZsX768KqetU" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"
+        integrity="sha384-k5vbMeKHbxEZ0AEBTSdR7UjAgWCcUfrS8c0c5b2AfIh7olfhNkyCZYwOfzOQhauK" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"
+        integrity="sha384-PgPBH0hy6DTJwu7pTf6bkRqPlf/+pjUBExpr/eIfzszlGYFlF9Wi9VTAJODPhgCO" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260609b">
+</head>
+
+<body class="{% if request.user.reader == 1 %}is-reader{% endif %}">
+
+    <nav class="navbar navbar-expand-lg navbar-custom shadow-sm">
+        <div class="container-fluid p-0">
+            <div class="d-flex flex-wrap gap-1">
+
+                {% if request.user.users == 1 %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_users' %}">Users</a>
+                {% endif %}
+                {% if request.user.delegation == 1 %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_delegations' %}">Delegations</a>
+                {% endif %}
+                {% if request.user.staff %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_staff' %}">Staff</a>
+                {% endif %}
+                {% if request.user.devices %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_devices' %}"
+                    onclick="document.documentElement.style.cursor='wait';">Devices</a>
+                {% endif %}
+                {% if request.user.licenses %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_licenses' %}">Licenses</a>
+                {% endif %}
+                {% if request.user.phones %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_phones' %}">Phones</a>
+                {% endif %}
+                {% if request.user.mobile_lines %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_mobile_lines' %}">Mobile Lines</a>
+                {% endif %}
+                {% if request.user.fiber_lines %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_fiber' %}">Fiber Lines</a>
+                {% endif %}
+                {% if request.user.printers %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_printers' %}">Printers</a>
+                {% endif %}
+                {% if request.user.allocations %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_allocations' %}">Allocations</a>
+                {% endif %}
+                {% if request.user.incorporations %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_incorporations' %}">Incorporations</a>
+                {% endif %}
+                {% if request.user.orders %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_orders' %}">Orders</a>
+                {% endif %}
+                {% if request.user.disponibility %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_availability' %}">Availability</a>
+                {% endif %}
+                {% if request.user.under_repair %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_under_repair' %}">Under Repair</a>
+                {% endif %}
+                {% if request.user.facturas %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_dist_invoices' %}">Dist Invoices</a>
+                {% endif %}
+
+                {% if request.user.access_cards or request.user.visitors_cards or request.user.access_keys %}
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
+                        Office Access
+                    </button>
+                    <ul class="dropdown-menu">
+                        {% if request.user.access_cards %}
+                        <li><a class="dropdown-item" href="{% url 'frm_access_cards' %}">Staff Access Cards</a></li>
+                        {% endif %}
+                        {% if request.user.visitors_cards %}
+                        <li><a class="dropdown-item" href="{% url 'frm_visitor_cards' %}">Visitor Access Cards</a></li>
+                        {% endif %}
+                        {% if request.user.access_keys %}
+                        <li><a class="dropdown-item" href="{% url 'frm_access_keys' %}">Key Access</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_password_change' %}">Password Change</a>
+            </div>
+
+            <div class="ms-auto">
+                <a href="{% url 'logout' %}" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Do you want to close the current session?');">
+                    <i class="bi bi-box-arrow-right"></i> Exit
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        {% block content %}
+            <div class="d-flex flex-column align-items-center justify-content-center text-center h-100 mt-5 pt-5 text-muted">
+                <img src="/static/octopus.png" alt="OE Logo" class="mb-4 shadow-sm" style="max-width: auto; height: auto; object-fit: contain;">
+                <h3>OE Inventory Management System</h3>
+                <p>Select an option from the menu above to start working.</p>
+            </div>
+        {% endblock %}
+    </div>
+
+    <footer class="statusbar d-flex justify-content-between align-items-center text-muted">
+        <div class="d-flex">
+            <div class="status-panel"><i class="bi bi-person-fill"></i> User: <strong>{{ request.user.username}}</strong></div>
+            <!-- Reflects the browser's internet connection (online/offline), updated live. -->
+            <div class="status-panel" id="conn-status"></div>
+            <div class="status-panel" id="online-users" role="button" tabindex="0" title="Show active users"
+                style="cursor: pointer;"><i class="bi bi-people-fill"></i> Online: <strong>{{ online_users|default:0 }}</strong></div>
+        </div>
+        <div class="d-flex">
+            <div class="px-3"><span class="badge bg-warning text-dark">{{ total_cards|default:0 }}</span> Pending cards
+            </div>
+            <div class="px-3"><span class="badge bg-primary">{{ total_orders|default:0 }}</span> Pending orders</div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"
+        integrity="sha384-nLoOnA/BDh8A/jxqtckg4DumuCGOBYUnNJLZdQz/zfYNp3wcjGSoWTAzgko06G/2" crossorigin="anonymous"></script>
+
+    <script>
+        // Footer connection indicator: reflects whether the browser has internet
+        // access (navigator.onLine), not whether a user is logged in. Updates live
+        // via the window online/offline events.
+        (function () {
+            function updateConnStatus() {
+                var el = document.getElementById('conn-status');
+                if (!el) return;
+                if (navigator.onLine) {
+                    el.className = 'status-panel text-success';
+                    el.innerHTML = '<i class="bi bi-cloud-check-fill"></i> Session: active';
+                } else {
+                    el.className = 'status-panel text-danger';
+                    el.innerHTML = '<i class="bi bi-cloud-slash"></i> Session: inactive';
+                }
+            }
+            window.addEventListener('online', updateConnStatus);
+            window.addEventListener('offline', updateConnStatus);
+            updateConnStatus();
+        })();
+
+        // Clicking the footer "Online" counter pops up the names of the users
+        // currently active in the application.
+        (function () {
+            var el = document.getElementById('online-users');
+            if (!el) return;
+            function showOnlineUsers() {
+                fetch("{% url 'api_online_users' %}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        var names = data.users || [];
+                        var body = names.length
+                            ? '<ul style="text-align:left; margin:0 auto; display:inline-block;">'
+                            + names.map(function (n) {
+                                var safe = document.createElement('div'); safe.textContent = n;
+                                return '<li>' + safe.innerHTML + '</li>';
+                            }).join('') + '</ul>'
+                            : '<p class="text-muted mb-0">No active users.</p>';
+                        Swal.fire({
+                            title: '<i class="bi bi-people-fill"></i> Active users (' + (data.count || 0) + ')',
+                            html: body,
+                            confirmButtonText: 'Close',
+                            confirmButtonColor: '#FF48D8'
+                        });
+                    })
+                    .catch(function () {
+                        Swal.fire({ icon: 'error', title: 'Error', text: 'Could not load the active users.' });
+                    });
+            }
+            el.addEventListener('click', showOnlineUsers);
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showOnlineUsers(); }
+            });
+        })();
+    </script>
+</body>
+
+</html>

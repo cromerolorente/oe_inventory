@@ -1,0 +1,89 @@
+/* Styles for the standalone login page (login.html). */
+
+body, html {
+    height: 100%;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    overflow: hidden; /* Avoid unnecessary scrolling, like the fixed desktop app */
+}
+
+/* Main container with the background image. Path is relative to this CSS file. */
+.desktop-bg {
+    background-image: url("../images/inventory_image_813.png");
+    background-size: cover;
+    background-position: center;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    background-color: white; /* Fallback if the image is not found */
+}
+
+/* Title area, top-left (mimics x=20, y=20 from Tkinter) */
+.brand-area {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent white background in case the image is dark */
+    padding: 10px 15px;
+    border-radius: 5px;
+}
+.brand-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin: 0;
+    color: #FF48D8;
+}
+.brand-version {
+    font-size: 1rem;
+    color: #666;
+    margin-left: 10px;
+}
+
+/* Login area, bottom-right (mimics x=600, y=500 from Tkinter) */
+.login-area {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    background-color: rgba(255, 255, 255, 0.9); /* Make the form stand out from the background */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    width: 320px;
+}
+
+.login-form-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.login-form-group label {
+    width: 90px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+    color: #333;
+}
+
+.login-form-group .form-control {
+    flex: 1;
+    padding: 4px 8px;
+    font-size: 0.9rem;
+}
+
+/* Custom OK button, bottom-right of the box */
+.btn-ok-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 15px;
+}
+
+.btn-ok {
+    width: 45px;
+    height: 45px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}

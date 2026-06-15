@@ -1,0 +1,60 @@
+/* Shared styles for the OE Inventory app (templates extending base_mdi.html). */
+
+body {
+    background-color: #808080; /* Original grey from the Tkinter app */
+    height: 100vh;          /* Lock the page to the viewport height... */
+    overflow: hidden;       /* ...so the whole page never scrolls. */
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar-custom {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 4px 10px;
+}
+
+.main-content {
+    flex: 1 1 auto;
+    min-height: 0;          /* let the flex item shrink so it can scroll */
+    padding: 20px;
+    overflow-y: auto;       /* only the content area scrolls; navbar + footer stay fixed */
+}
+
+/* Full-height form containers fill the scrollable area (not the whole
+   viewport), so short forms don't force a scrollbar and the status bar
+   stays visible regardless of the screen resolution. */
+.main-content > .min-vh-100 {
+    /* Bootstrap's .min-vh-100 is `100vh !important`, which would make the form
+       taller than the scroll area and push the footer off-screen. Beat it so the
+       container fills only the grey content area and the status bar stays put. */
+    min-height: 100% !important;
+}
+
+.statusbar {
+    background-color: #f1f1f1;
+    border-top: 1px solid #d3d3d3;
+    font-size: 0.85rem;
+    padding: 4px 15px;
+}
+
+.status-panel {
+    border-right: 1px solid #d3d3d3;
+    padding-right: 15px;
+    padding-left: 15px;
+}
+
+/* Reader profiles can view data but not download Excel files: hide every
+   export trigger for them (the server also blocks it via middleware). Covers
+   both the anchor exports and the JS-triggered ones marked .export-excel. */
+body.is-reader a[href*="export=excel"],
+body.is-reader .export-excel {
+    display: none !important;
+}
+
+/* Compact font used across the data forms, grids and the finder modal. */
+.app-surface {
+    font-size: 0.75rem;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}

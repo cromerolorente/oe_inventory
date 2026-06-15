@@ -1,0 +1,59 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OE Inventory - Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet"
+        integrity="sha384-l4UPAMHGzl7zwogLW4nOwaU2XTk6oiM1jhCRQstZEndoIiA2I5bg6fST3wzBSRBD" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+
+    <div class="desktop-bg">
+        
+        <div class="brand-area shadow-sm">
+            <h1 class="brand-title">OE Inventory</h1>
+            <div class="brand-version">Version Web 1.0</div> </div>
+
+        <div class="login-area">
+            <form method="POST">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                    <div class="alert alert-danger py-1 px-2 mb-3 text-center" style="font-size: 0.8rem;">
+                        <i class="bi bi-exclamation-triangle"></i> User or password incorrect.
+                    </div>
+                {% endif %}
+
+                <div class="login-form-group">
+                    <label for="id_username">User:</label>
+                    <input type="text" name="username" id="id_username" class="form-control" required autofocus>
+                </div>
+
+                <div class="login-form-group">
+                    <label for="id_password">Password:</label>
+                    <input type="password" name="password" id="id_password" class="form-control" required>
+                </div>
+
+                <div class="btn-ok-container">
+                    <button type="submit" class="btn btn-primary btn-ok shadow-sm" title="Press to check User/Password.">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="{% url 'password_reset' %}" style="font-size: 0.8rem;">Forgot my password?</a>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+</body>
+</html>

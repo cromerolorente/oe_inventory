@@ -1,0 +1,267 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Fiber Lines</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-fiber" value="{{ preselected_id }}">
+
+    <ul class="nav nav-tabs" id="fiberTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-general-btn" data-bs-toggle="tab" data-bs-target="#tab-general"
+                type="button" role="tab">General</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-list-btn" data-bs-toggle="tab" data-bs-target="#tab-list"
+                type="button" role="tab">List</button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 rounded-bottom bg-white p-3">
+
+        <!-- ============================ GENERAL ============================ -->
+        <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
+            <form method="POST" action="{% url 'frm_fiber' %}" id="form-fiber">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="input-action" value="save">
+                <input type="hidden" name="code" id="input-code-hidden" value="">
+
+                <div class="row g-3">
+                    <div class="col-lg-7">
+                        <label class="form-label fw-bold mb-1">ID</label>
+                        <div class="input-group mb-2">
+                            <input type="text" id="input-code" class="form-control form-control-sm" maxlength="11"
+                                placeholder="Fiber ID + Enter, or use Find"
+                                onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarFibraAjax(); }">
+                            <button type="button" class="btn p-0 border-0 ms-2" title="Find Fiber Line"
+                                onclick="FrmFinder.open('input-code', 'buscarFibraAjax', 'description', 'fiber')">
+                                <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                            </button>
+                        </div>
+
+                        <label class="form-label small mb-1">Description</label>
+                        <input type="text" id="input-description" name="description" class="form-control form-control-sm mb-2" maxlength="100">
+
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Provider</label>
+                                <input type="text" id="input-provider" name="provider" class="form-control form-control-sm mb-2"
+                                    list="provider-options" maxlength="100" autocomplete="off">
+                                <datalist id="provider-options">
+                                    {% for p in providers %}<option value="{{ p }}"></option>{% endfor %}
+                                </datalist>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Delegation</label>
+                                <select id="select-delegation" name="delegation" class="form-select form-select-sm mb-2">
+                                    <option value="">-- Delegation --</option>
+                                    {% for d in delegations %}<option value="{{ d.id_delegation }}">{{ d.delegation }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Order</label>
+                                <input type="text" id="input-order" name="order" class="form-control form-control-sm mb-2" maxlength="15">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Service Code</label>
+                                <input type="text" id="input-service-code" name="service_code" class="form-control form-control-sm mb-2" maxlength="50">
+                            </div>
+                        </div>
+
+                        <label class="form-label small mb-1">Access</label>
+                        <input type="text" id="input-access" name="access" class="form-control form-control-sm mb-2" maxlength="100">
+
+                        <label class="form-label small mb-1">Router</label>
+                        <input type="text" id="input-router" name="router" class="form-control form-control-sm mb-2" maxlength="100">
+
+                        <label class="form-label small mb-1">Addressing</label>
+                        <input type="text" id="input-addressing" name="addressing" class="form-control form-control-sm mb-2" maxlength="100">
+
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">WIFI 1</label>
+                                <input type="text" id="input-wifi1" name="wifi1" class="form-control form-control-sm mb-2" maxlength="100">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">WIFI 2</label>
+                                <input type="text" id="input-wifi2" name="wifi2" class="form-control form-control-sm mb-2" maxlength="100">
+                            </div>
+                        </div>
+
+                        <div class="row align-items-end">
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Start Date</label>
+                                <input type="date" id="input-start-date" name="start_date" class="form-control form-control-sm mb-2">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Down Date</label>
+                                <input type="date" id="input-down-date" name="down_date" class="form-control form-control-sm mb-2">
+                            </div>
+                            <div class="col-2">
+                                <label class="form-label small mb-1">Fixed IP</label>
+                                <input type="text" id="input-ip" name="ip_fixed" class="form-control form-control-sm mb-2" maxlength="14">
+                            </div>
+                            <div class="col-2">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="check-active" name="estado" value="1">
+                                    <label class="form-check-label fw-semibold" for="check-active">Active</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-5">
+                        <label class="form-label fw-bold mb-1"><i class="bi bi-journal-text"></i> Notes / Audit Log</label>
+                        <textarea class="form-control form-control-sm bg-light" id="textarea-notes" name="notes" rows="9" readonly></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-3 pt-2 border-top d-flex gap-3 align-items-center">
+                    <button type="button" id="btn-save" class="btn p-0 border-0" title="Save fiber line" onclick="guardarFibra()">
+                        <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-clear" class="btn p-0 border-0" title="Clear form" onclick="limpiarFibra()">
+                        <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                    </button>
+                    <button type="button" id="btn-incidence" class="btn p-0 border-0" title="Add an incidence" onclick="mostrarIncidencia()">
+                        <img src="/static/buttons/add_incidence.png" alt="Add incidence" style="width: 24px; height: 24px;">
+                    </button>
+                </div>
+            </form>
+
+            <!-- Add incidence panel (hidden until "Add incidence") -->
+            <div id="incidence-panel" class="card border mt-3 p-3" style="display: none;">
+                <h6 class="fw-bold" style="color: #FF48D8;">Managing Incidences</h6>
+                <form method="POST" action="{% url 'frm_fiber' %}" id="form-incidence">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_incidence">
+                    <input type="hidden" name="code" id="input-code-incidence" value="">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Working Order</label>
+                            <input type="text" name="working_code" id="input-working-code" class="form-control form-control-sm"
+                                list="working-code-options" maxlength="25" autocomplete="off" required>
+                            <datalist id="working-code-options"></datalist>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Open Date</label>
+                            <input type="date" name="open_date" id="input-open-date" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Close Date</label>
+                            <input type="date" name="close_date" id="input-close-date" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">Open Description</label>
+                            <input type="text" name="open_description" id="input-open-desc" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">Close Description</label>
+                            <input type="text" name="close_description" id="input-close-desc" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-sm" style="background-color: #FF48D8; color: white;">Save Incidence</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ocultarIncidencia()">Close</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Incidences grid -->
+            <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                <h6 class="mb-0 fw-bold text-secondary"><i class="bi bi-list-check"></i> Incidences</h6>
+                <button type="button" class="btn p-0 border-0 export-excel" title="Export incidences to Excel" onclick="excelIncidencias()">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </button>
+            </div>
+            <div class="table-responsive border rounded" style="max-height: 240px; overflow-y: auto;">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>ID</th><th>Open Date</th><th>Open Description</th>
+                            <th>Close Date</th><th>Close Description</th><th>Working Code</th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-incidences">
+                        <tr><td colspan="6" class="text-center text-muted py-3">No fiber line loaded.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============================ LIST ============================ -->
+        <div class="tab-pane fade" id="tab-list" role="tabpanel">
+            <div class="d-flex justify-content-end mb-2">
+                <a href="?export=excel" class="btn p-0 border-0" title="Export fiber lines to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
+            <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 270px); min-height: 200px; overflow-y: auto;">
+                <table id="tabla-fibra" class="table table-sm table-hover align-middle border-bottom">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th>ID</th><th>Description</th><th>Provider</th><th>Delegation</th><th>Order</th>
+                            <th>Service Code</th><th>Access</th><th>Router</th><th>Addressing</th>
+                            <th>WIFI1</th><th>WIFI2</th><th class="text-center">Active</th>
+                            <th>Start Date</th><th>Down Date</th><th>Fixed IP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="body-fiber-list">
+                        {% for f in fiber_list %}
+                        <tr class="fiber-row" style="cursor: pointer;" data-id="{{ f.id_fiber_line }}">
+                            <td>{{ f.id_fiber_line }}</td>
+                            <td>{{ f.description }}</td>
+                            <td>{{ f.proveedor|default:'' }}</td>
+                            <td>{% if f.id_delegation %}{{ f.id_delegation.delegation }}{% endif %}</td>
+                            <td>{{ f.orden|default:'' }}</td>
+                            <td>{{ f.codigo_servicio|default:'' }}</td>
+                            <td>{{ f.acceso|default:'' }}</td>
+                            <td>{{ f.router|default:'' }}</td>
+                            <td>{{ f.direccionamiento|default:'' }}</td>
+                            <td>{{ f.wifi1|default:'' }}</td>
+                            <td>{{ f.wifi2|default:'' }}</td>
+                            <td class="text-center">{% if f.estado == 1 %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                            <td>{{ f.fecha_inicio|date:'d-m-Y' }}</td>
+                            <td>{{ f.fecha_baja|date:'d-m-Y' }}</td>
+                            <td>{{ f.ip_fija|default:'' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+<script src="{% static 'js/fiber.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

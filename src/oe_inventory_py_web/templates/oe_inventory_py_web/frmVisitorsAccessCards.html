@@ -1,0 +1,118 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Visitors Access Cards</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-card" value="{{ preselected_card }}">
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card shadow-sm p-3 bg-white">
+                <form method="POST" action="{% url 'frm_visitor_cards' %}" id="form-visitor">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+
+                    <label class="form-label fw-bold mb-1">Card Code</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="input-card" name="card" class="form-control form-control-sm" maxlength="8"
+                            placeholder="Code + Enter, or use Find"
+                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarVisitanteAjax(); }">
+                        <button type="button" class="btn p-0 border-0 ms-2" title="Find Card"
+                            onclick="FrmFinder.open('input-card', 'buscarVisitanteAjax', 'card', 'visitor_cards')">
+                            <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+
+                    <label class="form-label small mb-1">Fermax MIF</label>
+                    <input type="text" id="input-fermax" name="fermax" class="form-control form-control-sm mb-2" maxlength="10">
+
+                    <label class="form-label small mb-1">User</label>
+                    <input type="text" id="input-user" name="user" class="form-control form-control-sm mb-2" maxlength="100">
+
+                    <label class="form-label small mb-1">State</label>
+                    <select id="select-state" name="state" class="form-select form-select-sm mb-2">
+                        <option value="">-- State --</option>
+                        {% for st in states %}<option value="{{ st.id_state }}">{{ st.description }}</option>{% endfor %}
+                    </select>
+
+                    <label class="form-label small mb-1">Observations</label>
+                    <input type="text" id="input-obs" name="obs" class="form-control form-control-sm mb-2" maxlength="200">
+
+                    <div class="mt-2 pt-2 border-top d-flex gap-3 align-items-center">
+                        <button type="button" class="btn p-0 border-0" title="Save card" onclick="guardarVisitante()">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear form" onclick="limpiarVisitante()">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow-sm p-3 bg-white mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Visitors Cards List</h6>
+                    <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
+                        <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                    </a>
+                </div>
+                <div class="table-responsive app-surface" style="max-height: 280px; overflow-y: auto;">
+                    <table id="tabla-visitantes" class="table table-sm table-hover align-middle border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>ID</th><th>Card</th><th>Fermax MIF</th><th>User</th><th>State</th><th>Obs</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for r in grid_rows %}
+                            <tr class="visitor-row" style="cursor: pointer; {% if r.lost %}--bs-table-bg:#F9A0B0;{% endif %}" data-card="{{ r.card }}">
+                                <td>{{ r.id }}</td>
+                                <td>{{ r.card }}</td>
+                                <td>{{ r.fermax }}</td>
+                                <td>{{ r.user }}</td>
+                                <td>{{ r.state }}</td>
+                                <td>{{ r.obs }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-sm p-3 bg-white">
+                <h6 class="mb-2 fw-bold text-secondary"><i class="bi bi-clock-history"></i> Card History</h6>
+                <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-dark sticky-top"><tr><th>ID</th><th>Notes</th></tr></thead>
+                        <tbody id="body-history">
+                            <tr><td colspan="2" class="text-center text-muted py-2">No card loaded.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+<script src="{% static 'js/visitor_cards.js' %}"></script>
+
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({ title: 'OE Inventory', text: '{{ message|escapejs }}', imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK', confirmButtonColor: '#FF48D8' });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

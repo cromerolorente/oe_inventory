@@ -1,0 +1,27 @@
+# Environment / secrets
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Django
+*.log
+db.sqlite3
+*.sqlite3
+/staticfiles/
+/src/media/
+
+# Build / deploy artifacts
+*.zip
+
+# Google Drive temp folders
+.tmp.drivedownload/
+.tmp.driveupload/
+
+# macOS
+.DS_Store

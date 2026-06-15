@@ -1,0 +1,143 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Allocations</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <form method="POST" action="{% url 'frm_allocations' %}" id="form-alloc">
+        {% csrf_token %}
+        <input type="hidden" name="action" id="input-action" value="">
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+
+                <!-- Staff -->
+                <div class="card shadow-sm p-3 bg-white mb-3">
+                    <label class="form-label fw-bold mb-1"><i class="bi bi-person-badge"></i> Staff member</label>
+                    <select id="select-staff" name="staff" class="form-select form-select-sm">
+                        <option value="">-- Select an active staff member --</option>
+                        {% for s in staff_list %}<option value="{{ s.id_staff }}" {% if preselected_staff == s.id_staff %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                    </select>
+                    <div class="d-flex justify-content-end mt-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                            title="Generate the allocation document (PDF) for the selected staff (physical persons)"
+                            onclick="generarDocAsignacion()">
+                            <i class="bi bi-file-earmark-pdf"></i> Generate document
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Devices -->
+                <div class="card shadow-sm p-3 bg-white mb-3">
+                    <h6 class="fw-bold mb-3" style="color: #FF48D8;"><i class="bi bi-pc-display"></i> Devices</h6>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Type</label>
+                            <select id="select-device-type" class="form-select form-select-sm">
+                                <option value="">-- Any --</option>
+                                {% for t in device_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Brand</label>
+                            <select id="select-device-brand" class="form-select form-select-sm">
+                                <option value="">-- Any --</option>
+                                {% for b in device_brands %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-end gap-2 mt-2">
+                        <div class="flex-grow-1">
+                            <label class="form-label small mb-1">Serial Number</label>
+                            <select id="select-device-serial" name="device_serial" class="form-select form-select-sm">
+                                <option value="">-- Search available devices --</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn p-0 border-0" title="Search available devices" onclick="searchDevices()">
+                            <img src="/static/buttons/load.png" alt="Search" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Assign device to staff" onclick="asignar('assign_device')">
+                            <img src="/static/buttons/save.png" alt="Assign" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Licenses -->
+                <div class="card shadow-sm p-3 bg-white mb-3">
+                    <h6 class="fw-bold mb-3" style="color: #FF48D8;"><i class="bi bi-key"></i> Licenses</h6>
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small mb-1">Type</label>
+                            <select id="select-license-type" class="form-select form-select-sm">
+                                <option value="">-- Any --</option>
+                                {% for t in license_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-end gap-2 mt-2">
+                        <div class="flex-grow-1">
+                            <label class="form-label small mb-1">Serial Number</label>
+                            <select id="select-license-serial" name="license_serial" class="form-select form-select-sm">
+                                <option value="">-- Search available licenses --</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn p-0 border-0" title="Search available licenses" onclick="searchLicenses()">
+                            <img src="/static/buttons/load.png" alt="Search" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Assign license to staff" onclick="asignar('assign_license')">
+                            <img src="/static/buttons/save.png" alt="Assign" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mobile Phones -->
+                <div class="card shadow-sm p-3 bg-white">
+                    <h6 class="fw-bold mb-3" style="color: #FF48D8;"><i class="bi bi-phone"></i> Mobile Phones</h6>
+                    <div class="d-flex align-items-end gap-2">
+                        <div class="flex-grow-1">
+                            <label class="form-label small mb-1">Serial Number</label>
+                            <input type="text" id="select-phone-serial" name="phone_serial"
+                                class="form-control form-control-sm" list="phone-options"
+                                placeholder="Type or pick a phone serial" autocomplete="off">
+                            <datalist id="phone-options"></datalist>
+                        </div>
+                        <button type="button" class="btn p-0 border-0" title="Search available phones" onclick="searchPhones()">
+                            <img src="/static/buttons/load.png" alt="Search" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Assign phone to staff" onclick="asignar('assign_phone')">
+                            <img src="/static/buttons/save.png" alt="Assign" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="{% static 'js/allocations.js' %}?v=20260612group2"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

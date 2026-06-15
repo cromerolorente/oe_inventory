@@ -1,0 +1,114 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Under Repair</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <!-- Hidden form used to receive a device from maintenance -->
+    <form method="POST" action="{% url 'frm_under_repair' %}" id="form-receive" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="receive">
+        <input type="hidden" name="id" id="receive-id">
+        <input type="hidden" name="value" id="receive-value">
+    </form>
+
+    <ul class="nav nav-tabs" id="repairTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-pending-btn" data-bs-toggle="tab" data-bs-target="#tab-pending" type="button" role="tab">Pending</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-repaired-btn" data-bs-toggle="tab" data-bs-target="#tab-repaired" type="button" role="tab">Repaired</button>
+        </li>
+    </ul>
+    <div class="tab-content border border-top-0 rounded-bottom bg-white p-3">
+
+        <!-- ===================== PENDING ===================== -->
+        <div class="tab-pane fade show active" id="tab-pending" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <button type="button" class="btn p-0 border-0" title="Receive selected device from maintenance" onclick="recibirReparacion()">
+                    <img src="/static/buttons/support.png" alt="Receive" style="width: 24px; height: 24px; display: block;">
+                </button>
+                <a href="?export=excel&tab=pending" class="btn p-0 border-0" title="Export to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
+            <div class="table-responsive app-surface" style="max-height: calc(100vh - 270px); min-height: 200px; overflow-y: auto;">
+                <table id="tabla-pending" class="table table-sm table-hover align-middle border-bottom">
+                    <thead class="table-dark sticky-top">
+                        <tr><th>ID</th><th>Serial Number</th><th>Model</th><th>Date Out</th><th>Destiny</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for r in pending_rows %}
+                        <tr class="repair-row" style="cursor: pointer;" data-id="{{ r.id }}">
+                            <td>{{ r.id }}</td>
+                            <td>{{ r.serial }}</td>
+                            <td>{{ r.model }}</td>
+                            <td>{{ r.date_out|date:'d-m-Y' }}</td>
+                            <td>{{ r.destiny }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===================== REPAIRED ===================== -->
+        <div class="tab-pane fade" id="tab-repaired" role="tabpanel">
+            <div class="d-flex justify-content-end mb-2">
+                <a href="?export=excel&tab=repaired" class="btn p-0 border-0" title="Export to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
+            <div class="table-responsive app-surface" style="max-height: calc(100vh - 270px); min-height: 200px; overflow-y: auto;">
+                <table id="tabla-repaired" class="table table-sm table-hover align-middle border-bottom">
+                    <thead class="table-dark sticky-top">
+                        <tr><th>ID</th><th>Serial Number</th><th>Model</th><th>Date Out</th><th>Date In</th><th>Destiny</th><th class="text-end">Value</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for r in repaired_rows %}
+                        <tr>
+                            <td>{{ r.id }}</td>
+                            <td>{{ r.serial }}</td>
+                            <td>{{ r.model }}</td>
+                            <td>{{ r.date_out|date:'d-m-Y' }}</td>
+                            <td>{{ r.date_in|date:'d-m-Y' }}</td>
+                            <td>{{ r.destiny }}</td>
+                            <td class="text-end">{{ r.value }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-end mt-2 pe-2">
+                <span class="fw-bold text-info">Total Value:&nbsp;{{ repaired_total|floatformat:2 }} €</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/under_repair.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

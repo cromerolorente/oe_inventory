@@ -1,0 +1,141 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Delegations</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-delegation" value="{{ preselected_id }}">
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm p-3 bg-white mb-3">
+                <form method="POST" action="{% url 'frm_delegations' %}" id="form-delegation">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="code" id="input-code-hidden" value="">
+
+                    <label class="form-label fw-bold mb-1">Code</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="input-code" class="form-control form-control-sm" maxlength="11"
+                            placeholder="ID + Enter, use Find, or leave empty to create"
+                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarDelegacionAjax(); }">
+                        <button type="button" class="btn p-0 border-0 ms-2" title="Find Delegation"
+                            onclick="FrmFinder.open('input-code', 'buscarDelegacionAjax', 'delegation', 'delegations')">
+                            <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+
+                    <label class="form-label small mb-1">Delegation</label>
+                    <input type="text" id="input-delegation" name="delegation" class="form-control form-control-sm mb-2" maxlength="100">
+
+                    <label class="form-label small mb-1">Address</label>
+                    <input type="text" id="input-direccion" name="direccion" class="form-control form-control-sm mb-2" maxlength="100">
+
+                    <div class="row">
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Post Code</label>
+                            <input type="text" id="input-cpostal" name="cpostal" class="form-control form-control-sm mb-2" maxlength="10">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Town</label>
+                            <input type="text" id="input-poblacion" name="poblacion" class="form-control form-control-sm mb-2" maxlength="50">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Province</label>
+                            <select id="input-provincia" name="provincia" class="form-select form-select-sm mb-2">
+                                <option value="">---</option>
+                                {% for p in provinces %}
+                                <option value="{{ p.id_province }}">{{ p.province }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <label class="form-label small mb-1">Notes</label>
+                    <textarea id="textarea-notes" name="notes" class="form-control form-control-sm bg-light" rows="5" readonly></textarea>
+
+                    <div class="mt-3 pt-2 border-top d-flex gap-3 align-items-center">
+                        <button type="button" class="btn p-0 border-0" title="Save delegation" onclick="guardarDelegacion()">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear form" onclick="limpiarDelegacion()">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Geolocate this delegation on the map" onclick="geolocalizarDelegacion()">
+                            <i class="bi bi-geo-alt-fill" style="font-size: 22px; color: #FF48D8;"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card shadow-sm p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Delegations</h6>
+                    <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
+                        <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                    </a>
+                </div>
+                <div class="table-responsive app-surface">
+                    <table id="tabla-delegaciones" class="table table-sm table-hover align-middle border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>ID</th><th>Delegation</th><th>Address</th><th>Post Code</th><th>Town</th><th>Province</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for d in grid_rows %}
+                            <tr class="delegation-row" style="cursor: pointer;" data-id="{{ d.id_delegation }}">
+                                <td>{{ d.id_delegation }}</td>
+                                <td>{{ d.delegation }}</td>
+                                <td>{{ d.direccion|default:'' }}</td>
+                                <td>{{ d.cpostal|default:'' }}</td>
+                                <td>{{ d.poblacion|default:'' }}</td>
+                                <td>{{ d.provincia.province|default:'' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm p-3 bg-white h-100">
+                <h6 class="mb-2 fw-bold" style="color: #FF48D8;"><i class="bi bi-geo-alt-fill"></i> Delegations map</h6>
+                <div id="delegations-map" style="height: calc(100vh - 200px); min-height: 400px; border-radius: 6px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+{{ map_points|json_script:"delegations-map-data" }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="{% static 'js/delegations.js' %}?v=20260610pins"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

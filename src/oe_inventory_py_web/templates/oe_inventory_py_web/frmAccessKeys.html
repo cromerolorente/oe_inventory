@@ -1,0 +1,116 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Access Keys</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-key" value="{{ preselected_id }}">
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="card shadow-sm p-3 bg-white">
+                <form method="POST" action="{% url 'frm_access_keys' %}" id="form-key">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="code" id="input-code-hidden" value="">
+
+                    <label class="form-label fw-bold mb-1">Key ID</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="input-code" class="form-control form-control-sm" maxlength="11"
+                            placeholder="ID + Enter, Find, or empty to create"
+                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarLlaveAjax(); }">
+                        <button type="button" class="btn p-0 border-0 ms-2" title="Find Key"
+                            onclick="FrmFinder.open('input-code', 'buscarLlaveAjax', 'type', 'access_keys')">
+                            <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+
+                    <label class="form-label small mb-1">Company</label>
+                    <select id="select-company" name="company" class="form-select form-select-sm mb-2">
+                        <option value="">-- Company --</option>
+                        {% for c in companies %}<option value="{{ c.id_company }}">{{ c.name }}</option>{% endfor %}
+                    </select>
+
+                    <label class="form-label small mb-1">Type</label>
+                    <input type="text" id="input-type" name="type" class="form-control form-control-sm mb-2"
+                        list="type-options" maxlength="100" autocomplete="off">
+                    <datalist id="type-options">
+                        {% for t in types %}<option value="{{ t }}"></option>{% endfor %}
+                    </datalist>
+
+                    <label class="form-label small mb-1">Staff</label>
+                    <select id="select-staff" name="staff" class="form-select form-select-sm mb-2">
+                        <option value="">-- Staff --</option>
+                        {% for s in staff %}<option value="{{ s.id_staff }}">{{ s.name }}</option>{% endfor %}
+                    </select>
+
+                    <label class="form-label small mb-1">Insert Date</label>
+                    <input type="date" id="input-date" name="insert_date" class="form-control form-control-sm mb-2">
+
+                    <label class="form-label small mb-1">Notes</label>
+                    <textarea id="textarea-notes" name="notes" class="form-control form-control-sm bg-light" rows="5" readonly></textarea>
+
+                    <div class="mt-2 pt-2 border-top d-flex gap-3 align-items-center">
+                        <button type="button" class="btn p-0 border-0" title="Save key" onclick="guardarLlave()">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear form" onclick="limpiarLlave()">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm p-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Access Keys List</h6>
+                    <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
+                        <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                    </a>
+                </div>
+                <div class="table-responsive app-surface" style="max-height: calc(100vh - 260px); min-height: 200px; overflow-y: auto;">
+                    <table id="tabla-llaves" class="table table-sm table-hover align-middle border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>ID</th><th>Company</th><th>Type</th><th>Staff</th><th>Insert Date</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for r in grid_rows %}
+                            <tr class="key-row" style="cursor: pointer;" data-id="{{ r.id_key }}">
+                                <td>{{ r.id_key }}</td>
+                                <td>{{ r.company_name|default:'' }}</td>
+                                <td>{{ r.type|default:'' }}</td>
+                                <td>{{ r.staff_name|default:'' }}</td>
+                                <td>{{ r.insert_date|date:'d-m-Y' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+<script src="{% static 'js/access_keys.js' %}"></script>
+
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({ title: 'OE Inventory', text: '{{ message|escapejs }}', imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK', confirmButtonColor: '#FF48D8' });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

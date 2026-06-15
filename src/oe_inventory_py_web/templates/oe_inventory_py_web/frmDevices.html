@@ -1,0 +1,222 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load humanize %}
+{% load static %}
+
+
+{% block content %}
+{% comment %}
+Busy cursor while this large screen parses and DataTables renders.
+The reset is inline here (not in the cached devices.js) so it always runs,
+and is tied to window 'load' which fires once the table is fully ready.
+{% endcomment %}
+<script>
+    document.documentElement.style.cursor = 'wait';
+    window.addEventListener('load', function () {
+        document.documentElement.style.cursor = '';
+    });
+</script>
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    {% if under_repair %}
+    <div class="alert alert-danger d-flex align-items-center justify-content-between shadow-sm py-2 mb-3" role="alert">
+        <h5 class="alert-heading mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i> UNDER REPAIR (IN MAINTENANCE)</h5>
+        <span>Device in Technical Service</span>
+    </div>  
+    {% endif %}
+
+    <form method="POST" action="{% url 'frm_devices' %}">
+        {% csrf_token %}
+
+        <div class="row g-3">
+            <div class="col-xl-9 col-lg-8 col-md-12">
+                <div class="card shadow-sm p-4 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Devices</h5>
+                        <div>
+                            <input type="hidden" id="input-clave" name="clave" value="{{ device_data.serial_number|default:'' }}"> 
+                            <a href="{% url 'mdi_home' %}" class="btn btn-danger ms-auto btn-sm px-3">
+                                <i class="bi bi-box-arrow-right"></i> Exit
+                            </a>    
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 border-end pe-md-4">
+                            <label class="form-label fw-bold small mb-1">Serial Number (SN)</label>
+                            <div class="input-group mb-2">
+                                <input type="text" id="input-serial" class="form-control form-control-sm" name="serial_number"
+                                    value="{{ device_data.serial_number|default:'' }}" placeholder="Put a SN and press Search button."
+                                    onkeydown="if(event.keyCode === 13) { event.preventDefault(); buscarDispositivoAjax(); }"
+                                    oninput="limpiarFormularioDispositivo()">
+                                
+                                <button type="button" class="btn p-0 border-0 ms-2" title="Find Device"
+                                    onclick="FrmFinder.open('input-serial', 'buscarDispositivoAjax', 'model', '5')">
+                                    <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                                </button>  
+                                <!--<button type="button" class="btn p-0 border-0 ms-2" title="Find Device" onclick="buscarDispositivoAjax()">
+                                    <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                                </button>-->
+                            </div>
+
+                            <label class="form-label small mb-1">Company</label>
+                            <select id="select-company" class="form-select form-select-sm mb-2" name="id_company">
+                                <option value="">-- Company Selection --</option>
+                                {% for item in companies %}
+                                    <option value="{{ item.id_company }}" {% if device_data.id_company.id_company == item.id_company %}selected{% endif %}>
+                                        {{ item.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+
+                            <label class="form-label small mb-1">Type</label>
+                            <input type="text" id="input-type" class="form-control form-control-sm mb-2" name="type" list="type-options"
+                                value="{{ device_data.type|default:'' }}" autocomplete="off">
+
+                            <datalist id="type-options">
+                                {% for type_name in unique_types %}
+                                    <option value="{{ type_name }}"></option>
+                                {% endfor %}
+                            </datalist>
+
+                            <label class="form-label small mb-1">Brand</label>
+                            <input type="text" id="input-brand" class="form-control form-control-sm mb-2" name="brand" value="{{ device_data.brand|default:'' }}">
+
+                            <label class="form-label small mb-1">Model</label>
+                            <input type="text" id="input-model" class="form-control form-control-sm mb-2" name="model" value="{{ device_data.model|default:'' }}">
+
+                            <div class="row">
+                                <div class="col-4">
+                                    <label class="form-label text-muted small mb-1">Screen Size</label>
+                                    <input type="text" id="input-screen" class="form-control form-control-sm mb-1" name="screen_size" value="{{ device_data.screen_size|default:'' }}">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label text-muted small mb-1">HD Size</label>
+                                    <input type="text" id="input-hd" class="form-control form-control-sm mb-1" name="hd" value="{{ device_data.hd|default:'' }}">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label text-muted small mb-1">Memory</label>
+                                    <input type="text" id="input-memory" class="form-control form-control-sm mb-1" name="memory" value="{{ device_data.memory|default:'' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 ps-md-4">
+                            <div class="form-check form-switch mb-3 mt-2">
+                                <input class="form-check-input" type="checkbox" name="mobile_line" id="check-mobile" value="1" {% if device_data.mobile_line %}checked{% endif %}>
+                                <label class="form-check-label fw-bold" for="check-mobile">Have mobile SIM?</label>
+                            </div>
+
+                            <label class="form-label small mb-1">IMEI</label>
+                            <input type="text" id="input-imei" class="form-control form-control-sm mb-2" name="imei" value="{{ device_data.imei|default:'' }}">
+
+                            <label class="form-label small mb-1">PIN/PUK</label>
+                            <input type="text" id="input-pin" class="form-control form-control-sm mb-2" name="pin_puk" value="{{ device_data.pin_puk|default:'' }}">
+
+                            <label class="form-label small mb-1">Origin</label>
+                            <input type="text" id="input-origin" class="form-control form-control-sm mb-2" name="origin" value="{{ device_data.origin|default:'' }}">
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Insert Date</label>
+                                    <input type="date" id="input-date" class="form-control form-control-sm mb-2" name="insert_date" value="{{ device_data.insert_date|date:'Y-m-d'|default:'' }}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Bill Number</label>
+                                    <input type="text" id="input-bill" class="form-control form-control-sm mb-2" name="bill_number" value="{{ device_data.bill_number|default:'' }}">
+                                </div>
+                            </div>
+
+                            <label class="form-label small mb-1">Obs</label>
+                            <input type="text" id="input-obs" class="form-control form-control-sm mb-2" name="obs" value="{{ device_data.obs|default:'' }}">
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Value (€)</label>
+                                    <input type="number" id="input-value" step="0.01" class="form-control form-control-sm" name="value" value="{{ device_data.value|default:'0' }}">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Assigned to (Staff)</label>
+                                    <input type="text" id="input-staff" class="form-control form-control-sm bg-light" value="{% if device_data.persone %}{{ device_data.persone.name }}{% else %}Unassigned{% endif %}" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top d-flex gap-3 align-items-center">
+                        <button type="submit" name="action" value="save" class="btn p-0 border-0" title="Save Device Data">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="submit" name="action" value="support" class="btn p-0 border-0" title="Send / Receive from Technical Service">
+                            <img src="/static/buttons/support.png" alt="Support" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear Device Data" 
+                                onclick="document.getElementById('input-serial').value = ''; limpiarFormularioDispositivo();">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+
+                </div>
+            </div> <div class="col-xl-3 col-lg-4 col-md-12">
+                <div class="card text-white text-end p-3 mb-2 shadow-sm">
+                    <div class="small text-muted text-uppercase">Total Devices</div>
+                    <h2 class="mb-0 text-info fw-bold">{{ total_devices|default:0|intcomma }}</h2>
+                </div>
+                <div class="card text-white text-end p-3 mb-2 shadow-sm">
+                    <div class="small text-muted text-uppercase">Total Portfolio Value</div>
+                    <h2 class="mb-0 text-info fw-bold">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h2>
+                </div>
+
+                <div class="card shadow-sm p-3 bg-white">
+                    <label class="form-label fw-bold text-secondary small"><i class="bi bi-journal-text"></i> History / Internal Notes</label>
+                    <textarea class="form-control form-control-sm bg-light small" name="notes" rows="11" placeholder="Automated system history..." {% if device_data %}readonly{% endif %}>{{ device_data.notes|default:'' }}</textarea>
+                </div>
+            </div>
+
+        </div> </form>
+
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Active Devices Inventory</h5>
+                    <a href="?export=excel{% if staff_filter %}&id_staff={{ staff_filter }}{% endif %}" class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Export to Excel</a>
+                </div>
+
+                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 520px); min-height: 200px; overflow-y: auto;">
+                   <table id="tabla-dispositivos" class="table table-sm table-hover align-middle table-borderless border-bottom"
+                          data-ajax-url="{% url 'api_devices_datatable' %}" data-staff-filter="{{ staff_filter|default:'' }}">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Serial Number</th>
+                                <th>Type</th>
+                                <th>Brand</th>
+                                <th>Model</th>
+                                <th>Screen</th>
+                                <th>HD</th>
+                                <th>Memory</th>
+                                <th>IMEI</th>
+                                <th class="text-center">Mobile</th>
+                                <th>PIN/PUK</th>
+                                <th>Origin</th>
+                                <th>Date</th>
+                                <th>Bill Nº</th>
+                                <th>Assigned To</th>
+                                <th class="text-end">Value</th>
+                            </tr>
+                        </thead>
+
+                        <!-- Rows are loaded on demand by DataTables (server-side), see devices.js -->
+                        <tbody id="device-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/devices.js' %}?v=ssr"></script>
+
+<!-- Include the finder modal's HTML and JS here at the end. -->
+{% include "oe_inventory_py_web/partials/finder_modal.html" %}
+
+{% endblock %}

@@ -1,0 +1,199 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load humanize %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div id="alert-under-repair" class="alert alert-danger align-items-center justify-content-between shadow-sm py-2 mb-3" role="alert" style="display: none;">
+        <h5 class="alert-heading mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i> UNDER REPAIR (IN MAINTENANCE)</h5>
+        <span>Phone in Technical Service</span>
+    </div>
+
+    <input type="hidden" id="preselected-sn" value="{{ preselected_sn }}">
+
+    <form method="POST" action="{% url 'frm_phones' %}">
+        {% csrf_token %}
+
+        <div class="row g-3">
+            <div class="col-xl-9 col-lg-8 col-md-12">
+                <div class="card shadow-sm p-4 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Mobile Phones</h5>
+                        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3">
+                            <i class="bi bi-box-arrow-right"></i> Exit
+                        </a>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 border-end pe-md-4">
+                            <label class="form-label fw-bold small mb-1">Serial Number (SN)</label>
+                            <div class="input-group mb-2">
+                                <input type="text" id="input-serial" class="form-control form-control-sm" name="serial_number"
+                                    maxlength="50" placeholder="Put a SN and press Enter or Find."
+                                    onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarTelefonoAjax(); }"
+                                    oninput="limpiarFormularioTelefono()">
+                                <button type="button" class="btn p-0 border-0 ms-2" title="Find Phone"
+                                    onclick="FrmFinder.open('input-serial', 'buscarTelefonoAjax', 'serial_number', 'phones')">
+                                    <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                                </button>
+                            </div>
+
+                            <label class="form-label small mb-1">Company</label>
+                            <select id="select-company" class="form-select form-select-sm mb-2" name="company">
+                                <option value="">-- Company Selection --</option>
+                                {% for c in companies %}<option value="{{ c.id_company }}">{{ c.name }}</option>{% endfor %}
+                            </select>
+
+                            <label class="form-label small mb-1">Brand</label>
+                            <input type="text" id="input-brand" class="form-control form-control-sm mb-2" name="brand" maxlength="25">
+
+                            <label class="form-label small mb-1">Model</label>
+                            <input type="text" id="input-model" class="form-control form-control-sm mb-2" name="model" maxlength="50">
+
+                            <label class="form-label small mb-1">Origin</label>
+                            <input type="text" id="input-origin" class="form-control form-control-sm mb-2" name="origin"
+                                list="origin-options" maxlength="50" autocomplete="off">
+                            <datalist id="origin-options">
+                                {% for o in origin_options %}<option value="{{ o }}"></option>{% endfor %}
+                            </datalist>
+                        </div>
+
+                        <div class="col-md-6 ps-md-4">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Insert Date</label>
+                                    <input type="date" id="input-date" class="form-control form-control-sm mb-2" name="insert_date">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Value (€)</label>
+                                    <input type="number" id="input-value" step="0.01" class="form-control form-control-sm mb-2" name="value" value="0">
+                                </div>
+                            </div>
+
+                            <label class="form-label small mb-1">IMEI</label>
+                            <input type="text" id="input-imei" class="form-control form-control-sm mb-2" name="imei" maxlength="20">
+
+                            <label class="form-label small mb-1">Obs</label>
+                            <input type="text" id="input-obs" class="form-control form-control-sm mb-2" name="obs" maxlength="200">
+
+                            <label class="form-label small mb-1">Bill Number</label>
+                            <input type="text" id="input-bill" class="form-control form-control-sm mb-2" name="bill_number" maxlength="25">
+
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Number (line)</label>
+                                    <input type="text" id="input-number" class="form-control form-control-sm bg-light" readonly>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1">Assigned to (Staff)</label>
+                                    <input type="text" id="input-person" name="person" class="form-control form-control-sm bg-light" value="Unassigned" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top d-flex gap-3 align-items-center">
+                        <button type="submit" name="action" value="save" class="btn p-0 border-0" title="Save Phone Data">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear Phone Data"
+                            onclick="document.getElementById('input-serial').value=''; limpiarFormularioTelefono();">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="submit" name="action" value="support" class="btn p-0 border-0" title="Send / Receive from Technical Service">
+                            <img src="/static/buttons/support.png" alt="Support" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                        <button type="submit" name="action" value="release" class="btn p-0 border-0" title="Unassign this phone from the person">
+                            <img src="/static/buttons/release.png" alt="Release" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-lg-4 col-md-12">
+                <div class="card text-white text-end p-3 mb-2 shadow-sm">
+                    <div class="small text-muted text-uppercase">Total Phones</div>
+                    <h2 class="mb-0 text-info fw-bold">{{ total_phones|default:0|intcomma }}</h2>
+                </div>
+                <div class="card text-white text-end p-3 mb-2 shadow-sm">
+                    <div class="small text-muted text-uppercase">Total Value</div>
+                    <h2 class="mb-0 text-info fw-bold">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h2>
+                </div>
+
+                <div class="card shadow-sm p-3 bg-white">
+                    <label class="form-label fw-bold text-secondary small"><i class="bi bi-journal-text"></i> History / Internal Notes</label>
+                    <textarea class="form-control form-control-sm bg-light" id="textarea-notes" name="notes" rows="8"
+                        placeholder="Automated system history..." readonly></textarea>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="row mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm p-4 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Mobile Phones Inventory</h5>
+                    <a href="?export=excel" class="btn p-0 border-0" title="Send grid data to an Excel file">
+                        <img src="/static/buttons/send_to_excel.png" alt="Export to Excel" style="width: 24px; height: 24px; display: block;">
+                    </a>
+                </div>
+
+                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto;">
+                    <table id="tabla-telefonos" class="table table-sm table-hover align-middle table-borderless border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Serial Number</th><th>Company</th><th>Brand</th><th>Model</th><th>Origin</th>
+                                <th>Date</th><th>Person</th><th>Number</th><th>IMEI</th><th>Obs</th>
+                                <th class="text-end">Value</th><th>Bill Number</th>
+                            </tr>
+                        </thead>
+                        <tbody id="phone-table-body">
+                            {% for item in grid_data %}
+                            <tr class="phone-row" style="cursor: pointer;" data-serial="{{ item.serial }}">
+                                <td>{{ item.serial }}</td>
+                                <td>{{ item.company }}</td>
+                                <td>{{ item.brand|default:'-' }}</td>
+                                <td>{{ item.model|default:'-' }}</td>
+                                <td>{{ item.origin|default:'-' }}</td>
+                                <td>{{ item.date_obj|date:'d-m-Y' }}</td>
+                                <td>{% if item.person %}{{ item.person }}{% else %}-{% endif %}</td>
+                                <td>{{ item.number|default:'-' }}</td>
+                                <td>{{ item.imei|default:'-' }}</td>
+                                <td>{{ item.obs|default:'-' }}</td>
+                                <td class="text-end">{{ item.value|default:'0' }} €</td>
+                                <td>{{ item.bill|default:'-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+<script src="{% static 'js/phones.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

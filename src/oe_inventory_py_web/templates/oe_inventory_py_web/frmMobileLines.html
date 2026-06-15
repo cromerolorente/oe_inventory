@@ -1,0 +1,301 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Mobile Lines</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <input type="hidden" id="preselected-number" value="{{ preselected_number }}">
+
+    <div class="row g-3">
+        <!-- ===================== LINE FORM ===================== -->
+        <div class="col-xl-7 col-lg-6">
+            <div class="card shadow-sm p-3 bg-white">
+                <form method="POST" action="{% url 'frm_mobile_lines' %}" id="form-line">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" id="input-action" value="save">
+
+                    <div id="alert-baja" class="alert alert-warning py-1 px-2 mb-2" role="alert" style="display: none;"></div>
+
+                    <label class="form-label fw-bold mb-1">Number</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="input-number" name="number" class="form-control form-control-sm" maxlength="50"
+                            placeholder="Number + Enter, or use Find"
+                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarLineaAjax(); }"
+                            oninput="limpiarLinea()">
+                        <button type="button" class="btn p-0 border-0 ms-2" title="Find Mobile Line"
+                            onclick="FrmFinder.open('input-number', 'buscarLineaAjax', 'number', 'lines')">
+                            <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
+                        </button>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-7">
+                            <label class="form-label small mb-1">Company</label>
+                            <select id="select-company" name="company" class="form-select form-select-sm mb-2">
+                                <option value="">-- Company --</option>
+                                {% for c in companies %}<option value="{{ c.id_company }}">{{ c.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small mb-1">Insert Date</label>
+                            <input type="date" id="input-date" name="insert_date" class="form-control form-control-sm mb-2">
+                        </div>
+                    </div>
+
+                    <label class="form-label small mb-1">Origin</label>
+                    <input type="text" id="input-origin" name="origin" class="form-control form-control-sm mb-2"
+                        list="origin-options" maxlength="50" autocomplete="off">
+                    <datalist id="origin-options">
+                        {% for o in origins %}<option value="{{ o }}"></option>{% endfor %}
+                    </datalist>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label small mb-1">PIN</label>
+                            <input type="text" id="input-pin" name="pin" class="form-control form-control-sm mb-2" maxlength="4">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">PIN2</label>
+                            <input type="text" id="input-pin2" name="pin2" class="form-control form-control-sm mb-2" maxlength="4">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">PUK</label>
+                            <input type="text" id="input-puk" name="puk" class="form-control form-control-sm mb-2" maxlength="10">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">PUK2</label>
+                            <input type="text" id="input-puk2" name="puk2" class="form-control form-control-sm mb-2" maxlength="10">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-8">
+                            <label class="form-label small mb-1">CARD (IMEI)</label>
+                            <input type="text" id="input-card" name="card" class="form-control form-control-sm mb-2" maxlength="30">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Extension</label>
+                            <input type="text" id="input-extension" name="extension" class="form-control form-control-sm mb-2" maxlength="10">
+                        </div>
+                    </div>
+
+                    <label class="form-label small mb-1">Obs</label>
+                    <input type="text" id="input-obs" name="obs" class="form-control form-control-sm mb-2">
+
+                    <div class="d-flex gap-4 mb-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="esim" id="chk-esim" value="1" onclick="onToggleEsim()">
+                            <label class="form-check-label fw-semibold" for="chk-esim">eSIM</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="m2m" id="chk-m2m" value="1" onclick="onToggleM2m()">
+                            <label class="form-check-label fw-semibold" for="chk-m2m">M2M</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Person</label>
+                            <input type="text" id="input-person" class="form-control form-control-sm bg-light mb-2" readonly>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1">Device SN (assigned phone)</label>
+                            <input type="text" id="input-device-sn" class="form-control form-control-sm bg-light mb-2" readonly>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-top d-flex gap-3 align-items-center">
+                        <button type="button" class="btn p-0 border-0" title="Save line" onclick="guardarLinea()">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear form" onclick="limpiarLinea(true)">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Unassign line from phone" onclick="liberarLinea()">
+                            <img src="/static/buttons/release.png" alt="Release" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Cancel line with the provider" onclick="cancelarLinea()">
+                            <img src="/static/buttons/cancel_line.png" alt="Cancel line" style="width: 24px; height: 24px;">
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ===================== RIGHT: ASSIGNMENT + SUMMARY ===================== -->
+        <div class="col-xl-5 col-lg-6">
+            <!-- Assignment panels (one visible depending on the line mode) -->
+            <div class="card shadow-sm p-3 bg-white mb-3">
+                <div id="panel-mobile" class="assign-panel">
+                    <h6 class="fw-bold mb-2" style="color: #FF48D8;">New Mobile Assignment</h6>
+                    <form method="POST" action="{% url 'frm_mobile_lines' %}" id="form-assign-mobile">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="assign_mobile">
+                        <input type="hidden" name="number" id="num-mobile">
+                        <div class="d-flex align-items-end gap-2">
+                            <div class="flex-grow-1">
+                                <label class="form-label small mb-1">Mobile (stock phone)</label>
+                                <select name="mobile_serial" class="form-select form-select-sm">
+                                    <option value="">-- Select a phone --</option>
+                                    {% for s in stock_phones %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn p-0 border-0" title="Assign card to this phone">
+                                <img src="/static/buttons/save.png" alt="Assign" style="width: 24px; height: 24px; display: block;">
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="panel-esim" class="assign-panel" style="display: none;">
+                    <h6 class="fw-bold mb-2" style="color: #FF48D8;">New eSIM Assignment</h6>
+                    <form method="POST" action="{% url 'frm_mobile_lines' %}" id="form-assign-esim">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="assign_esim">
+                        <input type="hidden" name="number" id="num-esim">
+                        <div class="d-flex align-items-end gap-2">
+                            <div class="flex-grow-1">
+                                <label class="form-label small mb-1">Staff</label>
+                                <select name="staff" class="form-select form-select-sm">
+                                    <option value="">-- Select a staff member --</option>
+                                    {% for s in staff %}<option value="{{ s.id_staff }}">{{ s.name }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn p-0 border-0" title="Assign card as eSIM">
+                                <img src="/static/buttons/save.png" alt="Assign" style="width: 24px; height: 24px; display: block;">
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="panel-m2m" class="assign-panel" style="display: none;">
+                    <h6 class="fw-bold mb-2" style="color: #FF48D8;">New M2M Assignment</h6>
+                    <form method="POST" action="{% url 'frm_mobile_lines' %}" id="form-assign-m2m">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="assign_m2m">
+                        <input type="hidden" name="number" id="num-m2m">
+                        <div class="d-flex align-items-end gap-2">
+                            <div class="flex-grow-1">
+                                <label class="form-label small mb-1">Device</label>
+                                <select name="device" class="form-select form-select-sm">
+                                    <option value="">-- Select a device --</option>
+                                    {% for d in m2m_devices %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn p-0 border-0" title="Assign card to M2M device">
+                                <img src="/static/buttons/save.png" alt="Assign" style="width: 24px; height: 24px; display: block;">
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Cards summary -->
+            <div class="card shadow-sm p-3 bg-white">
+                <h6 class="fw-bold mb-2" style="color: #FF48D8;">Cards Summary</h6>
+                <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>Type</th><th class="text-end">In Use</th><th class="text-end">Free</th><th class="text-end">Cancel</th><th class="text-end">Total</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for s in summary_rows %}
+                            <tr>
+                                <td>{{ s.type }}</td>
+                                <td class="text-end">{{ s.asig }}</td>
+                                <td class="text-end">{{ s.free }}</td>
+                                <td class="text-end">{{ s.baja }}</td>
+                                <td class="text-end">{{ s.total }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="fw-bold" style="background-color: #f0a5dd;">
+                                <td>TOTAL</td>
+                                <td class="text-end">{{ summary_total.asig }}</td>
+                                <td class="text-end">{{ summary_total.free }}</td>
+                                <td class="text-end">{{ summary_total.baja }}</td>
+                                <td class="text-end">{{ summary_total.total }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-sm p-3 bg-white mt-3">
+                <label class="form-label small mb-1 fw-bold text-secondary">Notes</label>
+                <textarea id="textarea-notes" name="notes" form="form-line" class="form-control form-control-sm bg-light" rows="4" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== MAIN GRID ===================== -->
+    <div class="card shadow-sm p-3 bg-white mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Mobile Lines</h6>
+            <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
+                <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+            </a>
+        </div>
+        <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto;">
+            <table id="tabla-lineas" class="table table-sm table-hover align-middle border-bottom">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>Number</th><th>Company</th><th>Origin</th><th>PIN</th><th>PUK</th><th>PIN2</th><th>PUK2</th>
+                        <th>IMEI</th><th>Date</th><th>Mobile</th><th>Person</th><th>Ext</th>
+                        <th class="text-center">eSIM</th><th class="text-center">M2M</th><th class="text-center">B</th><th>Obs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in grid_rows %}
+                    <tr class="line-row" style="cursor: pointer;" data-number="{{ r.number }}">
+                        <td>{{ r.number }}</td>
+                        <td>{{ r.company }}</td>
+                        <td>{{ r.origin }}</td>
+                        <td>{{ r.pin }}</td>
+                        <td>{{ r.puk }}</td>
+                        <td>{{ r.pin2 }}</td>
+                        <td>{{ r.puk2 }}</td>
+                        <td>{{ r.imei }}</td>
+                        <td>{{ r.date|date:'d-m-Y' }}</td>
+                        <td>{{ r.phone }}</td>
+                        <td>{{ r.person }}</td>
+                        <td>{{ r.extension }}</td>
+                        <td class="text-center">{% if r.esim %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
+                        <td class="text-center">{% if r.m2m %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
+                        <td class="text-center">{% if r.baja %}<i class="bi bi-x-lg text-danger"></i>{% endif %}</td>
+                        <td>{{ r.obs }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'oe_inventory_py_web/partials/finder_modal.html' %}
+
+<script src="{% static 'js/mobile_lines.js' %}"></script>
+
+{# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}
