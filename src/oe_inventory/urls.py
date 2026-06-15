@@ -46,6 +46,7 @@ urlpatterns = [
     path('users/', views.frm_users, name='frm_users'),
     path('api/get-user/', views.api_get_user, name='api_get_user'),
     path('api/online-users/', views.api_online_users, name='api_online_users'),
+    path('manual/', views.manual_view, name='manual'),
 
     # Licenses screen
     path('licenses/', views.frm_licenses_view, name='frm_licenses'),

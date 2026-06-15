@@ -36,6 +36,40 @@ def count_online_users(window_seconds=ACTIVE_USER_WINDOW_SECONDS):
     return len(online_user_ids(window_seconds))
 
 
+# Maps each screen (URL name) to the manual anchor that explains it, so the
+# navbar help button can deep-link straight to the relevant chapter.
+MANUAL_ANCHORS = {
+    'login': 'login',
+    'mdi_home': 'home',
+    'frm_staff': 'staff',
+    'frm_allocations': 'allocations',
+    'frm_incorporations': 'incorporations',
+    'frm_devices': 'devices',
+    'frm_licenses': 'licenses',
+    'frm_phones': 'phones',
+    'frm_mobile_lines': 'mobile-lines',
+    'frm_fiber': 'fiber-lines',
+    'frm_printers': 'printers',
+    'frm_access_cards': 'access-cards',
+    'frm_visitor_cards': 'visitor-cards',
+    'frm_access_keys': 'access-keys',
+    'frm_orders': 'orders',
+    'frm_availability': 'availability',
+    'frm_under_repair': 'under-repair',
+    'frm_dist_invoices': 'distribution-invoices',
+    'frm_delegations': 'delegations',
+    'frm_users': 'users',
+    'frm_password_change': 'password-change',
+}
+
+
+def manual_help(request):
+    """Expose the manual anchor for the current screen (for the help button)."""
+    match = getattr(request, 'resolver_match', None)
+    url_name = match.url_name if match else None
+    return {'manual_anchor': MANUAL_ANCHORS.get(url_name, '')}
+
+
 def mdi_status_counters(request):
     # If the user is not logged in, skip the calculation.
     if not request.user.is_authenticated:

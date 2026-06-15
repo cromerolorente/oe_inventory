@@ -1339,6 +1339,50 @@ class DevicesGridServerSideTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
 
+class UserManualTests(TestCase):
+    """In-app user manual: rendering, language switch and contextual help."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='manual_u', password='pass12345', devices=1)
+
+    def test_manual_requires_login(self):
+        response = self.client.get(reverse('manual'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_manual_renders_spanish_by_default(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('manual'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Manual de Usuario')
+        # A stable per-screen anchor must be present for deep links.
+        self.assertContains(response, 'id="devices"')
+
+    def test_manual_renders_english(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('manual'), {'lang': 'en'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'User Manual')
+
+    def test_manual_rewrites_image_paths_to_static(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('manual'))
+        body = response.content.decode()
+        self.assertIn('/static/manual_images/', body)
+        self.assertNotIn('src="images/', body)
+
+    def test_help_anchor_in_context_for_a_form(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('frm_devices'))
+        self.assertEqual(response.context['manual_anchor'], 'devices')
+
+    def test_navbar_has_manual_link(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('mdi_home'))
+        self.assertContains(response, reverse('manual'))
+
+
 class ResendEmailBackendTests(TestCase):
     """Email goes through the Resend API backend (replaces the SMTP backend)."""
 

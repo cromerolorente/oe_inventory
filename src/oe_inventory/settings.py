@@ -130,6 +130,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'oe_inventory_py_web.context_processors.mdi_status_counters',
+                'oe_inventory_py_web.context_processors.manual_help',
             ],
         },
     },

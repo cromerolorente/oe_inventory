@@ -60,6 +60,8 @@ Lo hemos escrito para que sea fácil: lenguaje sencillo, sin tecnicismos inneces
 
 ## 1. Primeros pasos
 
+<a id="login"></a>
+
 ### 1.1 Iniciar sesión
 
 **Para qué sirve:** entrar en la aplicación con tu usuario.
@@ -79,6 +81,8 @@ Lo hemos escrito para que sea fácil: lenguaje sencillo, sin tecnicismos inneces
 
 ---
 
+<a id="password-recovery"></a>
+
 ### 1.2 He olvidado mi contraseña
 
 **Para qué sirve:** recuperar el acceso sin ayuda de nadie cuando no recuerdas tu contraseña.
@@ -95,6 +99,8 @@ Lo hemos escrito para que sea fácil: lenguaje sencillo, sin tecnicismos inneces
 > **Ten en cuenta:** para que llegue el correo, tu usuario debe tener un **email registrado** (se configura en la pantalla [Users](#72-users-usuarios-de-la-app)). El envío se realiza a través de Resend.
 
 ---
+
+<a id="home"></a>
 
 ### 1.3 La pantalla de inicio (menú principal)
 
@@ -114,6 +120,8 @@ Lo hemos escrito para que sea fácil: lenguaje sencillo, sin tecnicismos inneces
 - **Exit** — cerrar sesión (te pedirá confirmación: *"Do you want to close the current session?"*).
 
 ---
+
+<a id="status-bar"></a>
 
 ### 1.4 La barra de estado (parte inferior)
 
@@ -150,6 +158,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 ---
 
 ## 3. Personal y asignaciones
+
+<a id="staff"></a>
 
 ### 3.1 Staff (Personal)
 
@@ -189,6 +199,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="allocations"></a>
+
 ### 3.2 Allocations (Asignaciones)
 
 **Para qué sirve:** asignar de forma ágil dispositivos, licencias y teléfonos que están en stock a una persona en activo.
@@ -215,6 +227,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="incorporations"></a>
+
 ### 3.3 Incorporations (Incorporaciones)
 
 **Para qué sirve:** preparar la llegada de una persona nueva (onboarding): qué equipo necesita, gestionar el envío/recepción y, al final, convertirla en personal de la app.
@@ -238,6 +252,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 ---
 
 ## 4. Activos
+
+<a id="devices"></a>
 
 ### 4.1 Devices (Dispositivos)
 
@@ -266,6 +282,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="licenses"></a>
+
 ### 4.2 Licenses (Licencias)
 
 **Para qué sirve:** registrar y controlar licencias de software: compras, caducidades y a quién están asignadas.
@@ -287,6 +305,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="phones"></a>
+
 ### 4.3 Phones (Teléfonos)
 
 **Para qué sirve:** gestionar los teléfonos móviles corporativos y su paso por el servicio técnico.
@@ -303,6 +323,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 **Detalles útiles:** si el teléfono está en reparación, aparece un aviso rojo arriba. Al liberar un teléfono de una persona física, se genera automáticamente un documento *Unassign*.
 
 ---
+
+<a id="mobile-lines"></a>
 
 ### 4.4 Mobile Lines (Líneas móviles)
 
@@ -325,6 +347,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="fiber-lines"></a>
+
 ### 4.5 Fiber Lines (Líneas de fibra)
 
 **Para qué sirve:** gestionar las líneas de fibra/conectividad de las sedes, su configuración técnica y las incidencias asociadas.
@@ -345,6 +369,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="printers"></a>
+
 ### 4.6 Printers (Impresoras)
 
 **Para qué sirve:** registrar las impresoras: datos técnicos, ubicación, contrato y credenciales de acceso.
@@ -363,6 +389,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 ---
 
 ## 5. Accesos físicos
+
+<a id="access-cards"></a>
 
 ### 5.1 Access Cards (Tarjetas de acceso)
 
@@ -385,6 +413,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="visitor-cards"></a>
+
 ### 5.2 Visitors Access Cards (Tarjetas de visitantes)
 
 **Para qué sirve:** gestionar tarjetas de acceso temporal para visitantes (sin PIN ni empleado fijo).
@@ -402,6 +432,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="access-keys"></a>
+
 ### 5.3 Access Keys (Llaves de acceso)
 
 **Para qué sirve:** registrar las llaves físicas de oficinas/despachos y quién es responsable de cada una.
@@ -418,6 +450,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 ---
 
 ## 6. Compras y seguimiento
+
+<a id="orders"></a>
 
 ### 6.1 Orders (Pedidos)
 
@@ -441,6 +475,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="availability"></a>
+
 ### 6.2 Availability (Disponibilidad)
 
 **Para qué sirve:** ver de un vistazo cuánto stock hay, cuánto se necesita y cuánto viene en camino, por tipo de artículo.
@@ -458,6 +494,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 **Qué puedes hacer:** **Export to Excel**.
 
 ---
+
+<a id="under-repair"></a>
 
 ### 6.3 Under Repair (En reparación)
 
@@ -480,6 +518,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
+<a id="distribution-invoices"></a>
+
 ### 6.4 Distribution Invoices (Facturas de distribución)
 
 **Para qué sirve:** desglosar una factura para ver **dónde se asignó cada activo** (empresa, delegación, departamento, persona y valor).
@@ -501,6 +541,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ## 7. Organización y usuarios
 
+<a id="delegations"></a>
+
 ### 7.1 Delegations (Delegaciones)
 
 **Para qué sirve:** gestionar las sedes/oficinas, con su dirección y un **mapa interactivo**.
@@ -520,6 +562,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 - Al pulsar un pin se muestra el nombre, la dirección y el estado.
 
 ---
+
+<a id="users"></a>
 
 ### 7.2 Users (Usuarios de la app)
 
@@ -545,6 +589,8 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 - El ámbito funciona de forma **acumulativa y opcional**: si no asignas ninguna empresa, el usuario las ve todas; lo mismo con delegaciones y departamentos.
 
 ---
+
+<a id="password-change"></a>
 
 ### 7.3 Cambiar mi contraseña
 

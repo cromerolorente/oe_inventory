@@ -164,6 +164,45 @@ def api_online_users(request):
     return JsonResponse({'count': len(names), 'users': names})
 
 
+# Language code -> manual file name (the files ship inside the app package so
+# they are always deployed, unlike a top-level docs/ folder).
+MANUAL_FILES = {'es': 'MANUAL_USUARIO.md', 'en': 'USER_MANUAL.md'}
+
+
+@login_required
+def manual_view(request):
+    """Render the user manual (Markdown) as an in-app HTML page.
+
+    Single source of truth: the same .md files used in the repo are rendered
+    here. Use ?lang=en|es to switch language and #<anchor> to jump to a screen.
+    """
+    import os
+    import markdown as md
+
+    lang = request.GET.get('lang', 'es')
+    if lang not in MANUAL_FILES:
+        lang = 'es'
+
+    manuals_dir = os.path.join(os.path.dirname(__file__), 'manuals')
+    path = os.path.join(manuals_dir, MANUAL_FILES[lang])
+
+    try:
+        with open(path, encoding='utf-8') as fh:
+            text = fh.read()
+        html = md.markdown(text, extensions=['tables', 'sane_lists', 'toc', 'attr_list'])
+        # Point the markdown image references at the served static files.
+        static_base = '/' + settings.STATIC_URL.strip('/') + '/manual_images/'
+        html = html.replace('src="images/', f'src="{static_base}')
+    except FileNotFoundError:
+        logger.exception("Manual file not found: %s", path)
+        html = "<p>The manual is not available right now.</p>"
+
+    return render(request, 'oe_inventory_py_web/manual.html', {
+        'manual_html': html,
+        'lang': lang,
+    })
+
+
 @login_required
 def frm_devices_view(request):
     companies = OeesCompanies.objects.all()
