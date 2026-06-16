@@ -1299,7 +1299,8 @@ class DevicesGridServerSideTests(TestCase):
                 model=f'M{i}', origin='New', insert_date=date(2026, 1, 1), value=100.0)
         OeesDevices.objects.create(
             serial_number='PHONE-9', type='PHONE', brand='Apple',
-            model='15', origin='New', insert_date=date(2026, 1, 1), value=900.0)
+            model='15', origin='New', insert_date=date(2026, 1, 1), value=900.0,
+            bill_number='FAC-2026-001')
 
     def test_frm_devices_does_not_render_rows_inline(self):
         # The page ships an empty tbody; rows arrive via AJAX afterwards.
@@ -1333,6 +1334,8 @@ class DevicesGridServerSideTests(TestCase):
         data = response.json()
         self.assertEqual(data['recordsFiltered'], 1)
         self.assertEqual(data['data'][0]['serial'], 'PHONE-9')
+        # The Bill Number column must carry its value through to the grid.
+        self.assertEqual(data['data'][0]['bill'], 'FAC-2026-001')
 
     def test_datatable_requires_login(self):
         response = self.client.get(reverse('api_devices_datatable'))

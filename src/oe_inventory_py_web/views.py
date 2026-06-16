@@ -440,23 +440,44 @@ def api_devices_datatable(request):
         length = 50
     page = qs[start:] if length == -1 else qs[start:start + length]
 
-    data = [{
-        'serial': d.serial_number,
-        'type': d.type or '',
-        'brand': d.brand or '',
-        'model': d.model or '',
-        'screen': d.screen_size or '-',
-        'hd': d.hd or '-',
-        'memory': d.memory or '-',
-        'imei': d.imei or '-',
-        'mobile': bool(d.mobile_line_id),
-        'pin': d.pin_puk or '-',
-        'origin': d.origin or '-',
-        'date': d.insert_date.strftime('%d-%m-%Y') if d.insert_date else '',
-        'bill': d.bill_number or '-',
-        'staff': d.persone.name if d.persone else '-',
-        'value': d.value or 0,
-    } for d in page]
+    def _safe_date(value):
+        # Legacy rows can carry odd dates (e.g. '0000-00-00'); never let one
+        # bad value turn an ordering request into a 500.
+        try:
+            return value.strftime('%d-%m-%Y') if value else ''
+        except Exception:
+            return ''
+
+    def _row(d):
+        return {
+            'serial': d.serial_number,
+            'type': d.type or '',
+            'brand': d.brand or '',
+            'model': d.model or '',
+            'screen': d.screen_size or '-',
+            'hd': d.hd or '-',
+            'memory': d.memory or '-',
+            'imei': d.imei or '-',
+            'mobile': bool(d.mobile_line_id),
+            'pin': d.pin_puk or '-',
+            'origin': d.origin or '-',
+            'date': _safe_date(d.insert_date),
+            'bill': d.bill_number or '-',
+            'staff': d.persone.name if d.persone else '-',
+            'value': d.value or 0,
+        }
+
+    # Build the rows defensively: a single corrupt record must not break the
+    # whole grid (which DataTables would surface as a generic "Ajax error").
+    data = []
+    try:
+        for d in page:
+            try:
+                data.append(_row(d))
+            except Exception:
+                logger.exception("Skipping a device row that failed to serialize")
+    except Exception:
+        logger.exception("Failed to iterate the devices page")
 
     return JsonResponse({
         'draw': int(request.GET.get('draw', 1)),

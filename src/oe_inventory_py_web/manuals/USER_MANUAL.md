@@ -607,43 +607,7 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 ---
 
-## Appendix A: Screenshot guide
-
-To complete the manual, take these screenshots and save them in `docs/images/` with **exactly** these names. Recommendation: use sample data (not real) and a width of ~1400 px.
-
-| Nº | File | What to capture |
-|----|------|-----------------|
-| 01 | `01-login.png` | The full login screen. |
-| 02 | `02-recuperar-contrasena.png` | The "Forgot my password" form. |
-| 03 | `03-inicio-mdi.png` | The home screen with the top menu. |
-| 04 | `04-barra-estado.png` | A detail of the bottom status bar (horizontal crop). |
-| 05 | `05-devices.png` | Devices with data in the form and table. |
-| 06 | `06-licenses.png` | Licenses with the by-type summary visible. |
-| 07 | `07-phones.png` | Phones with a record loaded. |
-| 08 | `08-mobile-lines.png` | Mobile Lines showing an assignment panel. |
-| 09 | `09-fiber-lines.png` | Fiber Lines, General tab with the incident panel open. |
-| 10 | `10-staff-general.png` | Staff, General tab with assigned items. |
-| 11 | `11-staff-terminate-modal.png` | The Terminate window with item checkboxes. |
-| 12 | `12-staff-docs.png` | Staff, Docs tab with a PDF preview. |
-| 13 | `13-allocations.png` | Allocations with a person selected and an asset searched. |
-| 14 | `14-incorporations.png` | Incorporations with the form and the three tabs. |
-| 15 | `15-users.png` | Users with permissions and scope visible. |
-| 16 | `16-password-change.png` | The change-password form. |
-| 17 | `17-access-cards.png` | Access Cards (include, if possible, a LOST row in pink). |
-| 18 | `18-visitor-cards.png` | Visitors Access Cards with the history below. |
-| 19 | `19-access-keys.png` | Access Keys with the listing. |
-| 20 | `20-delegations.png` | Delegations with the map and several pins (blue and red). |
-| 21 | `21-printers.png` | Printers, General tab. |
-| 22 | `22-orders.png` | Orders with the Pending/Canceled/Received tabs. |
-| 23 | `23-availability.png` | Availability with the table and a value in red. |
-| 24 | `24-under-repair.png` | Under Repair, Repaired tab with the Total Value. |
-| 25 | `25-distribution-invoices.png` | Distribution Invoices with subtotals on. |
-
-> **How to take a screenshot on Mac:** `Cmd + Shift + 4` and drag to select the area (it's saved on the Desktop). On Windows, use the **Snipping Tool** (`Win + Shift + S`).
-
----
-
-## Appendix B: Glossary
+## Appendix A: Glossary
 
 - **Asset:** any item in the inventory (device, licence, phone, line, card, key, printer).
 - **Stock:** assets not assigned to anyone.

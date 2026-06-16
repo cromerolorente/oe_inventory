@@ -117,6 +117,7 @@ Lo hemos escrito para que sea fácil: lenguaje sencillo, sin tecnicismos inneces
 **Qué puedes hacer:**
 - Pulsar cualquier botón del menú para abrir esa sección.
 - **Password Change** — cambiar tu contraseña (siempre disponible).
+- **Manual** — Acceso al manual online de la aplicacion para conocer las posibilidaes de la aplicacion o resolver alguna duda de funcionamiento.
 - **Exit** — cerrar sesión (te pedirá confirmación: *"Do you want to close the current session?"*).
 
 ---
@@ -607,43 +608,7 @@ Para no repetirlo en cada sección, estas ideas valen para casi todas las pantal
 
 ---
 
-## Anexo A: Guía de capturas
-
-Para completar el manual, haz estas capturas y guárdalas en `docs/images/` con **exactamente** estos nombres. Recomendación: usa datos de ejemplo (no reales) y un ancho de ~1400 px.
-
-| Nº | Archivo | Qué capturar |
-|----|---------|--------------|
-| 01 | `01-login.png` | Pantalla de login completa. |
-| 02 | `02-recuperar-contrasena.png` | Formulario "Forgot my password". |
-| 03 | `03-inicio-mdi.png` | Pantalla de inicio con el menú superior. |
-| 04 | `04-barra-estado.png` | Detalle de la barra de estado inferior (recorte horizontal). |
-| 05 | `05-devices.png` | Devices con datos en formulario y tabla. |
-| 06 | `06-licenses.png` | Licenses con el resumen por tipo visible. |
-| 07 | `07-phones.png` | Phones con una ficha cargada. |
-| 08 | `08-mobile-lines.png` | Mobile Lines mostrando un panel de asignación. |
-| 09 | `09-fiber-lines.png` | Fiber Lines, pestaña General con el panel de incidencias abierto. |
-| 10 | `10-staff-general.png` | Staff, pestaña General con items asignados. |
-| 11 | `11-staff-terminate-modal.png` | Ventana de baja (Terminate) con casillas de items. |
-| 12 | `12-staff-docs.png` | Staff, pestaña Docs con un PDF en vista previa. |
-| 13 | `13-allocations.png` | Allocations con persona seleccionada y un activo buscado. |
-| 14 | `14-incorporations.png` | Incorporations con el formulario y las tres pestañas. |
-| 15 | `15-users.png` | Users con permisos y ámbito visibles. |
-| 16 | `16-password-change.png` | Formulario de cambio de contraseña. |
-| 17 | `17-access-cards.png` | Access Cards (incluye, si puedes, una fila LOST en rosa). |
-| 18 | `18-visitor-cards.png` | Visitors Access Cards con el historial inferior. |
-| 19 | `19-access-keys.png` | Access Keys con el listado. |
-| 20 | `20-delegations.png` | Delegations con el mapa y varios pines (azul y rojo). |
-| 21 | `21-printers.png` | Printers, pestaña General. |
-| 22 | `22-orders.png` | Orders con las pestañas Pending/Canceled/Received. |
-| 23 | `23-availability.png` | Availability con la tabla y algún valor en rojo. |
-| 24 | `24-under-repair.png` | Under Repair, pestaña Repaired con el Total Value. |
-| 25 | `25-distribution-invoices.png` | Distribution Invoices con subtotales activados. |
-
-> **Cómo hacer una captura en Mac:** `Cmd + Shift + 4` y arrastra para seleccionar la zona (la imagen se guarda en el Escritorio). En Windows, usa la **Herramienta Recortes** (`Win + Shift + S`).
-
----
-
-## Anexo B: Glosario
+## Anexo A: Glosario
 
 - **Activo (asset):** cualquier elemento del inventario (dispositivo, licencia, teléfono, línea, tarjeta, llave, impresora).
 - **Stock:** activos que no están asignados a ninguna persona.
