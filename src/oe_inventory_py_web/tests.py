@@ -1365,6 +1365,12 @@ class UserManualTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'User Manual')
 
+    def test_manual_shows_both_language_buttons(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('manual'))
+        self.assertContains(response, '?lang=es')
+        self.assertContains(response, '?lang=en')
+
     def test_manual_rewrites_image_paths_to_static(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse('manual'))

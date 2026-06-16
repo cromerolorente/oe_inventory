@@ -9,9 +9,10 @@
             {% if lang == 'en' %}User Manual{% else %}Manual de Usuario{% endif %}
         </h5>
         <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small d-none d-md-inline"><i class="bi bi-translate"></i></span>
             <div class="btn-group btn-group-sm" role="group" aria-label="Language">
-                <a href="?lang=es" class="btn {% if lang == 'es' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Español</a>
-                <a href="?lang=en" class="btn {% if lang == 'en' %}btn-primary{% else %}btn-outline-secondary{% endif %}">English</a>
+                <a href="?lang=es" class="btn {% if lang == 'es' %}btn-primary{% else %}btn-outline-primary{% endif %}">Español</a>
+                <a href="?lang=en" class="btn {% if lang == 'en' %}btn-primary{% else %}btn-outline-primary{% endif %}">English</a>
             </div>
             <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
         </div>
