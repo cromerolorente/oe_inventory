@@ -154,11 +154,21 @@ function buscarDispositivoAjax() {
                 document.querySelectorAll('.device-row').forEach(r => r.classList.remove('table-primary'));
 
             } else {
-                alert("Device not found in the system. " + data.error);
+                // Not found: behave like Phones/Licenses — keep the serial the
+                // user typed, clear the rest and invite them to create it.
+                limpiarFormularioDispositivo();
+                const inputSerial2 = document.getElementById('input-serial');
+                if (inputSerial2) inputSerial2.value = serial;
+                Swal.fire({
+                    title: 'OE Inventory',
+                    text: 'Device not found. Fill the fields and press Save to create it.',
+                    icon: 'info',
+                    confirmButtonColor: '#FF48D8',
+                });
             }
         })
         .catch(error => {
             console.error("AJAX request error:", error);
-            alert("An error occurred while searching for the device.");
+            Swal.fire({ icon: 'error', title: 'Error', text: 'An error occurred while searching for the device.' });
         });
 }

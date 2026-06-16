@@ -1341,6 +1341,18 @@ class DevicesGridServerSideTests(TestCase):
         response = self.client.get(reverse('api_devices_datatable'))
         self.assertEqual(response.status_code, 302)
 
+    def test_save_creates_a_brand_new_device(self):
+        # Typing a new serial and pressing Save must create the device, like
+        # frmPhones/frmLicenses do.
+        from oe_inventory_py_web.models import OeesDevices
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_devices'), {
+            'action': 'save', 'serial_number': 'BRAND-NEW-1',
+            'type': 'LAPTOP', 'brand': 'HP', 'model': 'X1', 'value': '0',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(OeesDevices.objects.filter(serial_number='BRAND-NEW-1').exists())
+
 
 class UserManualTests(TestCase):
     """In-app user manual: rendering, language switch and contextual help."""
