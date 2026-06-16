@@ -422,6 +422,47 @@ class PrintersScreenTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(OeesPrinters.objects.filter(serial_number='PR-NEW').exists())
 
+    def test_save_persists_contract_and_page_costs(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_printers'), {
+            'action': 'save', 'serial_number': 'PR-CTR', 'description': 'Xerox',
+            'ip': '10.0.0.10', 'start_date': '2026-04-01',
+            'contract_number': 'RENT-2026-77', 'bw_page_cost': '0.012', 'color_page_cost': '0.085',
+        })
+        pr = OeesPrinters.objects.get(serial_number='PR-CTR')
+        self.assertEqual(pr.contract_number, 'RENT-2026-77')
+        self.assertEqual(pr.bw_page_cost, 0.012)
+        self.assertEqual(pr.color_page_cost, 0.085)
+
+    def test_page_costs_default_to_zero_and_contract_null_when_blank(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_printers'), {
+            'action': 'save', 'serial_number': 'PR-BLANK', 'description': 'Brother',
+            'ip': '10.0.0.11', 'start_date': '2026-04-01',
+        })
+        pr = OeesPrinters.objects.get(serial_number='PR-BLANK')
+        self.assertIsNone(pr.contract_number)
+        self.assertEqual(pr.bw_page_cost, 0)
+        self.assertEqual(pr.color_page_cost, 0)
+
+    def test_api_get_printer_returns_new_fields(self):
+        self.printer.contract_number = 'C-1'
+        self.printer.bw_page_cost = 0.02
+        self.printer.color_page_cost = 0.1
+        self.printer.save()
+        self.client.force_login(self.user)
+        data = self.client.get(reverse('api_get_printer'), {'serial_number': 'PR-1'}).json()['data']
+        self.assertEqual(data['contract_number'], 'C-1')
+        self.assertEqual(data['bw_page_cost'], '0.02')
+        self.assertEqual(data['color_page_cost'], '0.1')
+
+    def test_list_shows_total_monthly_fee(self):
+        OeesPrinters.objects.create(serial_number='PR-F1', description='A', ip='1', fee=10.0)
+        OeesPrinters.objects.create(serial_number='PR-F2', description='B', ip='2', fee=12.5)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('frm_printers'))
+        self.assertEqual(response.context['fee_total'], 22.5)
+
 
 class AllocationsScreenTests(TestCase):
     """Smoke tests for the Allocations screen."""
@@ -1458,3 +1499,23 @@ class ResendEmailBackendTests(TestCase):
             # With fail_silently the call is a no-op (0 sent), never the network.
             backend_silent = ResendEmailBackend(fail_silently=True)
             self.assertEqual(backend_silent.send_messages([msg]), 0)
+
+
+class SessionSecurityTests(TestCase):
+    """Sessions expire after inactivity and when the browser closes."""
+
+    def test_session_settings_are_configured(self):
+        from django.conf import settings
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 30 * 60)
+        self.assertTrue(settings.SESSION_SAVE_EVERY_REQUEST)
+        self.assertTrue(settings.SESSION_EXPIRE_AT_BROWSER_CLOSE)
+
+    def test_session_is_browser_close_with_30min_idle(self):
+        User = get_user_model()
+        user = User.objects.create_user(username='sess_u', password='pass12345')
+        self.client.force_login(user)
+        self.client.get(reverse('mdi_home'))
+        session = self.client.session
+        # Cookie dies on browser close, and the idle window is 30 minutes.
+        self.assertTrue(session.get_expire_at_browser_close())
+        self.assertEqual(session.get_expiry_age(), 30 * 60)

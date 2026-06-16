@@ -116,6 +116,17 @@ if os.environ.get('DJANGO_SECURE_SSL_REDIRECT', 'False') == 'True':
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
+# Session security: log users out after a period of inactivity and when they
+# close the browser.
+#  - SESSION_COOKIE_AGE: maximum idle time (30 minutes).
+#  - SESSION_SAVE_EVERY_REQUEST: re-stamps the expiry on every request, so the
+#    30 minutes count from the *last activity* (rolling idle timeout), not from
+#    login. An abandoned session closes; an active one never gets kicked out.
+#  - SESSION_EXPIRE_AT_BROWSER_CLOSE: the cookie dies when the browser closes.
+SESSION_COOKIE_AGE = 30 * 60
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
 ROOT_URLCONF = 'oe_inventory.urls'
 
 TEMPLATES = [

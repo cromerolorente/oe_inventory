@@ -10,6 +10,9 @@ function limpiarImpresora(clearSerial) {
     document.getElementById('input-start-date').value = '';
     document.getElementById('input-down-date').value = '';
     document.getElementById('input-fee').value = '';
+    document.getElementById('input-contract').value = '';
+    document.getElementById('input-bw-cost').value = '';
+    document.getElementById('input-color-cost').value = '';
     document.getElementById('input-user').value = '';
     document.getElementById('input-password').value = '';
     document.getElementById('textarea-notes').value = '';
@@ -26,6 +29,9 @@ function fillPrinter(d) {
     document.getElementById('input-start-date').value = d.start_date || '';
     document.getElementById('input-down-date').value = d.down_date || '';
     document.getElementById('input-fee').value = d.fee || '';
+    document.getElementById('input-contract').value = d.contract_number || '';
+    document.getElementById('input-bw-cost').value = d.bw_page_cost || '';
+    document.getElementById('input-color-cost').value = d.color_page_cost || '';
     document.getElementById('input-user').value = d.user || '';
     document.getElementById('input-password').value = d.password || '';
     document.getElementById('textarea-notes').value = d.notes || '';

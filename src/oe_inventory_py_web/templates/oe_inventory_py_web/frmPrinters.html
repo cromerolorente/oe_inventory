@@ -92,6 +92,22 @@
                         </div>
 
                         <div class="row">
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Contract Nº</label>
+                                <input type="text" id="input-contract" name="contract_number" class="form-control form-control-sm mb-2" maxlength="50"
+                                    placeholder="Renting / pay-per-use">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-1">B/W page cost (€)</label>
+                                <input type="number" step="0.0001" id="input-bw-cost" name="bw_page_cost" class="form-control form-control-sm mb-2">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-1">Color page cost (€)</label>
+                                <input type="number" step="0.0001" id="input-color-cost" name="color_page_cost" class="form-control form-control-sm mb-2">
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-6">
                                 <label class="form-label small mb-1">User</label>
                                 <input type="text" id="input-user" name="user" class="form-control form-control-sm mb-2" maxlength="25">
@@ -122,7 +138,10 @@
 
         <!-- ============================ LIST ============================ -->
         <div class="tab-pane fade" id="tab-list" role="tabpanel">
-            <div class="d-flex justify-content-end mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-bold text-info">
+                    <i class="bi bi-cash-coin"></i> Total monthly fee: {{ fee_total|floatformat:2 }} €
+                </div>
                 <a href="?export=excel" class="btn p-0 border-0" title="Export printers to Excel">
                     <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
                 </a>
@@ -158,7 +177,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/printers.js' %}"></script>
+<script src="{% static 'js/printers.js' %}?v=2"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

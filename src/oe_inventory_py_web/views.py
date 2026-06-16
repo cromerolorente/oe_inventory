@@ -1889,6 +1889,8 @@ def frm_printers_view(request):
         'printers_list': OeesPrinters.objects.select_related('id_delegation').order_by('-id_printer'),
         'preselected_sn': request.GET.get('sn', '').strip(),
         'is_reader': _is_reader(user),
+        # Total fixed monthly cost across all printers (shown atop the list).
+        'fee_total': OeesPrinters.objects.aggregate(t=Sum('fee'))['t'] or 0,
     }
     return render(request, 'oe_inventory_py_web/frmPrinters.html', context)
 
@@ -1927,6 +1929,18 @@ def _printer_save(request):
             messages.error(request, "The Monthly fee must be a number.")
             return redirect('frm_printers')
 
+    # Contract number: NULL when left blank. Page costs: default to 0.
+    contract_number = request.POST.get('contract_number', '').strip() or None
+
+    def _page_cost(field_name):
+        raw = request.POST.get(field_name, '').strip()
+        if not raw:
+            return 0
+        try:
+            return float(raw.replace(',', '.'))
+        except ValueError:
+            return 0
+
     fields = {
         'description': description,
         'id_delegation_id': request.POST.get('delegation') or None,
@@ -1935,6 +1949,9 @@ def _printer_save(request):
         'fecha_inicio': start_date,
         'fecha_baja': down_date,
         'fee': fee,
+        'contract_number': contract_number,
+        'bw_page_cost': _page_cost('bw_page_cost'),
+        'color_page_cost': _page_cost('color_page_cost'),
         'user': request.POST.get('user', '').strip(),
         'password': request.POST.get('password', '').strip(),
         'ip': request.POST.get('ip', '').strip(),
@@ -1981,6 +1998,9 @@ def api_get_printer(request):
         'start_date': pr.fecha_inicio.strftime('%Y-%m-%d') if pr.fecha_inicio else '',
         'down_date': pr.fecha_baja.strftime('%Y-%m-%d') if pr.fecha_baja else '',
         'fee': str(pr.fee) if pr.fee is not None else '',
+        'contract_number': pr.contract_number or '',
+        'bw_page_cost': str(pr.bw_page_cost) if pr.bw_page_cost is not None else '0',
+        'color_page_cost': str(pr.color_page_cost) if pr.color_page_cost is not None else '0',
         'user': pr.user or '',
         'password': pr.password or '',
         'ip': pr.ip or '',

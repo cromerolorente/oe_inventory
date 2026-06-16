@@ -421,6 +421,11 @@ class OeesPrinters(models.Model):
     user = models.CharField(max_length=25, blank=True, null=True)
     password = models.CharField(max_length=25, blank=True, null=True)
     fee = models.FloatField(blank=True, null=True)
+    # Contract number for renting / pay-per-use printers (NULL when not applicable).
+    contract_number = models.CharField(max_length=50, blank=True, null=True)
+    # Per-page printing costs (default 0).
+    bw_page_cost = models.FloatField(default=0)
+    color_page_cost = models.FloatField(default=0)
 
     def __str__(self):
         return f"Serial_Number: {self.serial_number} - Description: {self.description}"
