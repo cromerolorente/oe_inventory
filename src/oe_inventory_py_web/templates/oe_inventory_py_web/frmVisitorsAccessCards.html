@@ -22,7 +22,8 @@
                     <div class="input-group mb-2">
                         <input type="text" id="input-card" name="card" class="form-control form-control-sm" maxlength="8"
                             placeholder="Code + Enter, or use Find"
-                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarVisitanteAjax(); }">
+                            onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarVisitanteAjax(); }"
+                            oninput="limpiarCamposVisitante()">
                         <button type="button" class="btn p-0 border-0 ms-2" title="Find Card"
                             onclick="FrmFinder.open('input-card', 'buscarVisitanteAjax', 'card', 'visitor_cards')">
                             <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
@@ -101,7 +102,7 @@
 </div>
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
-<script src="{% static 'js/visitor_cards.js' %}"></script>
+<script src="{% static 'js/visitor_cards.js' %}?v=2"></script>
 
 {% if messages %}
     <script>

@@ -36,6 +36,18 @@ function fillKey(d) {
     syncCode();
 }
 
+// Clear the editable fields when the user types a new Key ID, keeping the ID
+// field itself (same behaviour as the other forms).
+function limpiarCamposLlave() {
+    document.getElementById('select-company').value = '';
+    document.getElementById('input-type').value = '';
+    document.getElementById('select-staff').value = '';
+    document.getElementById('input-date').value = '';
+    document.getElementById('textarea-notes').value = '';
+    syncCode();
+    document.querySelectorAll('.key-row').forEach(r => r.classList.remove('table-primary'));
+}
+
 function limpiarLlave() {
     document.getElementById('form-key').reset();
     document.getElementById('input-code').value = '';

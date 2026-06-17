@@ -45,6 +45,18 @@ function renderHistory(history) {
     });
 }
 
+// Clear the editable fields when the user types a new card code, keeping the
+// card field itself (same behaviour as the other forms).
+function limpiarCamposVisitante() {
+    document.getElementById('input-fermax').value = '';
+    document.getElementById('input-user').value = '';
+    document.getElementById('select-state').value = '';
+    document.getElementById('input-obs').value = '';
+    document.getElementById('body-history').innerHTML =
+        '<tr><td colspan="2" class="text-center text-muted py-2">No card loaded.</td></tr>';
+    document.querySelectorAll('.visitor-row').forEach(r => r.classList.remove('table-primary'));
+}
+
 function limpiarVisitante() {
     document.getElementById('form-visitor').reset();
     document.getElementById('input-card').value = '';

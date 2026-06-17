@@ -49,6 +49,18 @@ function limpiarTarjeta() {
     document.querySelectorAll('.card-row').forEach(r => r.classList.remove('table-primary'));
 }
 
+// Clear the editable fields when the user types a new card code, keeping the
+// card field itself (same behaviour as frmDevices / frmPrinters).
+function limpiarCamposTarjeta() {
+    document.getElementById('input-fermax').value = '';
+    document.getElementById('input-pin').value = '';
+    document.getElementById('select-staff').value = '';
+    document.getElementById('select-state').value = '';
+    document.getElementById('input-obs').value = '';
+    document.getElementById('textarea-notes').value = '';
+    document.querySelectorAll('.card-row').forEach(r => r.classList.remove('table-primary'));
+}
+
 function generarPin() {
     if (document.getElementById('input-pin').value) {
         Swal.fire({ title: 'OE Inventory', text: "You can't create another PIN.", icon: 'error', confirmButtonColor: '#FF48D8' });
