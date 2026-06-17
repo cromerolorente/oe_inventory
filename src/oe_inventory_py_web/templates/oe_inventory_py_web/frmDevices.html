@@ -17,15 +17,17 @@ and is tied to window 'load' which fires once the table is fully ready.
 </script>
 <div class="container-fluid py-3 bg-light min-vh-100 app-surface">
 
-    {% if under_repair %}
-    <div class="alert alert-danger d-flex align-items-center justify-content-between shadow-sm py-2 mb-3" role="alert">
+    <div id="alert-under-repair" class="alert alert-danger align-items-center justify-content-between shadow-sm py-2 mb-3" role="alert"
+        style="display: {% if under_repair %}flex{% else %}none{% endif %};">
         <h5 class="alert-heading mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i> UNDER REPAIR (IN MAINTENANCE)</h5>
         <span>Device in Technical Service</span>
-    </div>  
-    {% endif %}
+    </div>
 
-    <form method="POST" action="{% url 'frm_devices' %}">
+    <form method="POST" action="{% url 'frm_devices' %}" id="form-devices">
         {% csrf_token %}
+        {# Filled in by the maintenance pop-ups (destination when sending, cost when receiving). #}
+        <input type="hidden" name="repair_destiny" id="repair-destiny" value="">
+        <input type="hidden" name="repair_value" id="repair-value" value="">
 
         <div class="row g-3">
             <div class="col-xl-9 col-lg-8 col-md-12">
@@ -136,7 +138,7 @@ and is tied to window 'load' which fires once the table is fully ready.
                                 </div>
                                 <div class="col-6">
                                     <label class="form-label small mb-1">Assigned to (Staff)</label>
-                                    <input type="text" id="input-staff" class="form-control form-control-sm bg-light" value="{% if device_data.persone %}{{ device_data.persone.name }}{% else %}Unassigned{% endif %}" readonly>
+                                    <input type="text" id="input-staff" class="form-control form-control-sm bg-light" value="{{ device_staff|default:'Unassigned' }}" readonly>
                                 </div>
                             </div>
                         </div>
@@ -146,7 +148,8 @@ and is tied to window 'load' which fires once the table is fully ready.
                         <button type="submit" name="action" value="save" class="btn p-0 border-0" title="Save Device Data">
                             <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px; display: block;">
                         </button>
-                        <button type="submit" name="action" value="support" class="btn p-0 border-0" title="Send / Receive from Technical Service">
+                        <button type="submit" name="action" value="support" id="btn-support" class="btn p-0 border-0"
+                            title="Send / Receive from Technical Service" onclick="return gestionarMantenimiento(event)">
                             <img src="/static/buttons/support.png" alt="Support" style="width: 24px; height: 24px; display: block;">
                         </button>
                         <button type="button" class="btn p-0 border-0" title="Clear Device Data" 
@@ -214,9 +217,29 @@ and is tied to window 'load' which fires once the table is fully ready.
     </div>
 </div>
 
-<script src="{% static 'js/devices.js' %}?v=ssr3"></script>
+<script src="{% static 'js/devices.js' %}?v=ssr5"></script>
 
 <!-- Include the finder modal's HTML and JS here at the end. -->
 {% include "oe_inventory_py_web/partials/finder_modal.html" %}
+
+{# Show server-side messages (save / send / receive results) on THIS page,
+   right after the action, so they aren't carried over to the next screen. #}
+{% if messages %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+        Swal.fire({
+            title: 'OE Inventory',
+            text: '{{ message|escapejs }}',
+            imageUrl: '/static/octopus.png',
+            imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+            icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#FF48D8',
+        });
+        {% endfor %}
+    });
+</script>
+{% endif %}
 
 {% endblock %}

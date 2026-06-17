@@ -72,6 +72,9 @@
                 {% if request.user.under_repair %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_under_repair' %}">Under Repair</a>
                 {% endif %}
+                {% if request.user.not_returned %}
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_not_returned' %}">Not Returned</a>
+                {% endif %}
                 {% if request.user.facturas %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_dist_invoices' %}">Dist Invoices</a>
                 {% endif %}

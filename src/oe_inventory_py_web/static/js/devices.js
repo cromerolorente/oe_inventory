@@ -106,6 +106,10 @@ function limpiarFormularioDispositivo() {
 
     // Remove any row highlighted in blue in the table.
     document.querySelectorAll('.device-row').forEach(r => r.classList.remove('table-primary'));
+
+    // Hide the "under repair" banner when the form is cleared/changed.
+    const alertUR = document.getElementById('alert-under-repair');
+    if (alertUR) alertUR.style.display = 'none';
 }
 
 
@@ -150,6 +154,10 @@ function buscarDispositivoAjax() {
                 const textareaNotes = document.querySelector('textarea[name="notes"]');
                 if (textareaNotes) textareaNotes.value = data.notes;
 
+                // Show/hide the "under repair" banner for the loaded device.
+                const alertUR = document.getElementById('alert-under-repair');
+                if (alertUR) alertUR.style.display = data.under_repair ? 'flex' : 'none';
+
                 // Optional: deselect any highlighted row to avoid confusion.
                 document.querySelectorAll('.device-row').forEach(r => r.classList.remove('table-primary'));
 
@@ -171,4 +179,65 @@ function buscarDispositivoAjax() {
             console.error("AJAX request error:", error);
             Swal.fire({ icon: 'error', title: 'Error', text: 'An error occurred while searching for the device.' });
         });
+}
+
+// Send a device to / receive it from the technical service. Sending asks for
+// the destination; receiving asks for the repair cost. Which one we do depends
+// on whether the loaded device is currently under repair (the banner state).
+function gestionarMantenimiento(event) {
+    if (event) event.preventDefault();
+    const btn = document.getElementById('btn-support');
+    const form = btn ? btn.form : document.getElementById('form-devices');
+    const serialInput = document.getElementById('input-serial');
+    if (!serialInput || !serialInput.value.trim()) {
+        Swal.fire({ title: 'OE Inventory', text: 'Load a device first (enter its serial number).', icon: 'info', confirmButtonColor: '#FF48D8' });
+        return false;
+    }
+
+    const banner = document.getElementById('alert-under-repair');
+    const underRepair = banner && banner.style.display !== 'none';
+
+    function submitSupport() {
+        if (form.requestSubmit) {
+            form.requestSubmit(btn);
+        } else {
+            // Fallback for older browsers without requestSubmit().
+            const h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'action'; h.value = 'support';
+            form.appendChild(h);
+            form.submit();
+        }
+    }
+
+    if (underRepair) {
+        Swal.fire({
+            title: 'Receive from maintenance',
+            input: 'text',
+            inputLabel: 'Cost of the repair (€)',
+            showCancelButton: true,
+            confirmButtonColor: '#FF48D8',
+        }).then(res => {
+            if (res.isConfirmed && res.value !== '') {
+                document.getElementById('repair-value').value = res.value;
+                document.getElementById('repair-destiny').value = '';
+                submitSupport();
+            }
+        });
+    } else {
+        Swal.fire({
+            title: 'Send to maintenance',
+            input: 'text',
+            inputLabel: 'Destination (technical service)',
+            inputValue: 'Technical Service',
+            showCancelButton: true,
+            confirmButtonColor: '#FF48D8',
+        }).then(res => {
+            if (res.isConfirmed && res.value !== '') {
+                document.getElementById('repair-destiny').value = res.value;
+                document.getElementById('repair-value').value = '';
+                submitSupport();
+            }
+        });
+    }
+    return false;
 }

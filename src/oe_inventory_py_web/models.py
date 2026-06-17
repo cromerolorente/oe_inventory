@@ -39,6 +39,7 @@ class CustomUser(AbstractUser):
     companies = models.CharField(max_length=100, null=True, blank=True, verbose_name="companies")
     facturas = models.IntegerField(default=0, verbose_name="facturas")
     printers = models.IntegerField(default=0, verbose_name="printers")
+    not_returned = models.IntegerField(default=0, verbose_name="not_returned")
 
 class OeesAccessCards(models.Model):
     id_card = models.AutoField(primary_key=True)
@@ -189,7 +190,8 @@ class OeesDevices(models.Model):
     persone = models.ForeignKey('OeesStaff', on_delete=models.SET_NULL, blank=True, null=True, db_column='persone')
     obs = models.CharField(max_length=200, blank=True, null=True)
     value = models.FloatField()
-    mobile_line = models.ForeignKey('OeesMobileLines', on_delete=models.SET_NULL, blank=True, null=True, db_column='mobile_line')
+    # Plain 0/1 flag ("has mobile SIM?"), NOT a reference to oees_mobile_lines.
+    mobile_line = models.IntegerField(default=0)
     notes = models.TextField(blank=True, null=True)
 
     def __str__(self):

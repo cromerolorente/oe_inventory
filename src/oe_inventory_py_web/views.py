@@ -40,7 +40,7 @@ PERMITS_LIST = [
     ("delegation", "Delegation"), ("access_cards", "Access Cards"),
     ("visitors_cards", "Visitors Cards"), ("access_keys", "Access Keys"),
     ("under_repair", "Under Repair"), ("facturas", "Invoices distrib."),
-    ("printers", "Printers")
+    ("printers", "Printers"), ("not_returned", "Not Returned")
 ]
 
 def api_get_device(request):
@@ -112,7 +112,9 @@ def api_get_device(request):
             'date': date_val,
             'bill': getattr(device, 'bill_number', '') or '',
             'value': value_val,
-            'notes': getattr(device, 'notes', '') or ''
+            'notes': getattr(device, 'notes', '') or '',
+            'under_repair': OeesUnderRepair.objects.filter(
+                serial_number=serial, date_in__isnull=True).exists(),
         }
         return JsonResponse(data)
         
@@ -241,55 +243,62 @@ def frm_devices_view(request):
                     try:
                         company = OeesCompanies.objects.get(id_company=id_company)
                     except OeesCompanies.DoesNotExist:
-                        pass
+                        company = None
 
-                has_mobile = request.POST.get('mobile_line') == '1'
+                if company is None:
+                    # The company column is NOT NULL in the database, so a
+                    # company must always be chosen when saving a device.
+                    messages.error(request, "Please select a company.")
+                else:
+                    has_mobile = request.POST.get('mobile_line') == '1'
 
-                device, created = OeesDevices.objects.get_or_create(
-                    serial_number=serial_number,
-                    defaults={
-                        'insert_date': datetime.now().date(),
-                        'value': 0.0
-                    }
-                )
+                    device, created = OeesDevices.objects.get_or_create(
+                        serial_number=serial_number,
+                        defaults={
+                            'insert_date': datetime.now().date(),
+                            'value': 0.0,
+                            'company': company,
+                            # mobile_line is a plain 0/1 flag (has SIM?), NOT NULL.
+                            'mobile_line': 0,
+                        }
+                    )
 
-                device.company = company
-                device.type = request.POST.get('type', '')
-                device.brand = request.POST.get('brand', '')
-                device.model = request.POST.get('model', '')
-                device.screen_size = request.POST.get('screen_size', '')
-                device.hd = request.POST.get('hd', '')
-                device.memory = request.POST.get('memory', '')
-                device.imei = request.POST.get('imei', '')
-                device.pin_puk = request.POST.get('pin_puk', '')
-                device.origin = request.POST.get('origin', '')
-                device.bill_number = request.POST.get('bill_number', '')
-                device.obs = request.POST.get('obs', '')
-                device.notes = request.POST.get('notes', '')
+                    device.company = company
+                    device.type = request.POST.get('type', '')
+                    device.brand = request.POST.get('brand', '')
+                    device.model = request.POST.get('model', '')
+                    device.screen_size = request.POST.get('screen_size', '')
+                    device.hd = request.POST.get('hd', '')
+                    device.memory = request.POST.get('memory', '')
+                    device.imei = request.POST.get('imei', '')
+                    device.pin_puk = request.POST.get('pin_puk', '')
+                    device.origin = request.POST.get('origin', '')
+                    device.bill_number = request.POST.get('bill_number', '')
+                    device.obs = request.POST.get('obs', '')
+                    device.notes = request.POST.get('notes', '')
 
-                val_str = request.POST.get('value', '0')
-                try:
-                    device.value = float(val_str)
-                except ValueError:
-                    device.value = 0.0
-
-                if not has_mobile:
-                    device.mobile_line = None
-
-                date_str = request.POST.get('insert_date')
-                if date_str:
+                    val_str = request.POST.get('value', '0')
                     try:
-                        device.insert_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        device.value = float(val_str)
                     except ValueError:
-                        pass
+                        device.value = 0.0
 
-                device.save()
-                device_data = device
-                under_repair = OeesUnderRepair.objects.filter(
-                    serial_number=serial_number,
-                    date_in__isnull=True
-                ).exists()
-                messages.success(request, f"Device '{serial_number}' saved successfully.")
+                    device.mobile_line = 1 if has_mobile else 0   # 0/1 flag
+
+                    date_str = request.POST.get('insert_date')
+                    if date_str:
+                        try:
+                            device.insert_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        except ValueError:
+                            pass
+
+                    device.save()
+                    device_data = device
+                    under_repair = OeesUnderRepair.objects.filter(
+                        serial_number=serial_number,
+                        date_in__isnull=True
+                    ).exists()
+                    messages.success(request, f"Device '{serial_number}' saved successfully.")
 
         elif action == 'support':
             if not serial_number:
@@ -302,20 +311,45 @@ def frm_devices_view(request):
                         date_in__isnull=True
                     ).first()
 
+                    now_str = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+
                     if active_repair:
+                        # Receiving: record the repair cost entered by the user.
                         active_repair.date_in = datetime.now().date()
+                        cost = None
+                        repair_value = request.POST.get('repair_value', '').strip()
+                        if repair_value:
+                            try:
+                                cost = float(repair_value.replace(',', '.'))
+                                active_repair.value = cost
+                            except ValueError:
+                                pass
                         active_repair.save()
+                        cost_txt = f" (cost {cost} €)" if cost is not None else ""
+                        device.notes = (f"{now_str} - Received from maintenance{cost_txt} "
+                                        f"by {request.user.username}\n{device.notes or ''}").strip()
+                        # Update by primary key (unique, even if 0): a queryset update
+                        # skips the AutoField check that save() applies to id_device=0.
+                        OeesDevices.objects.filter(pk=device.pk).update(notes=device.notes)
                         messages.success(request, f"Device '{serial_number}' received from technical support.")
                         under_repair = False
                     else:
+                        # Sending: store the destination entered by the user. type='D'
+                        # marks it as a device so it shows up in frmUnderRepair.
+                        destiny = request.POST.get('repair_destiny', '').strip() or "Technical Service"
                         OeesUnderRepair.objects.create(
                             serial_number=serial_number,
-                            type=device.type[:1] if device.type else '1',
+                            type='D',
                             date_out=datetime.now().date(),
-                            destiny="Technical Service",
+                            destiny=destiny,
                             notes="Sent from the web inventory panel",
                             value=device.value or 0.0
                         )
+                        device.notes = (f"{now_str} - Sent to maintenance ({destiny}) "
+                                        f"by {request.user.username}\n{device.notes or ''}").strip()
+                        # Update by primary key (unique, even if 0): a queryset update
+                        # skips the AutoField check that save() applies to id_device=0.
+                        OeesDevices.objects.filter(pk=device.pk).update(notes=device.notes)
                         messages.success(request, f"Device '{serial_number}' sent to technical support.")
                         under_repair = True
                     device_data = device
@@ -370,11 +404,23 @@ def frm_devices_view(request):
         t for t in devices_qs.values_list('type', flat=True).distinct() if t
     )
 
+    # Resolve the assigned staff name safely. Legacy rows may store an empty
+    # string in `persone` instead of NULL, which would make the template's FK
+    # lookup (device_data.persone) raise when converting '' to a number.
+    device_staff = 'Unassigned'
+    if device_data:
+        try:
+            if getattr(device_data, 'persone_id', None):
+                device_staff = device_data.persone.name
+        except Exception:
+            device_staff = 'Unassigned'
+
     context = {
         'companies': companies,
         'total_devices': total_devices,
         'total_value': total_value,
         'device_data': device_data,
+        'device_staff': device_staff,
         'unique_types': unique_types,
         'under_repair': under_repair,
         'staff_filter': staff_id,
@@ -458,7 +504,7 @@ def api_devices_datatable(request):
             'hd': d.hd or '-',
             'memory': d.memory or '-',
             'imei': d.imei or '-',
-            'mobile': bool(d.mobile_line_id),
+            'mobile': bool(d.mobile_line),
             'pin': d.pin_puk or '-',
             'origin': d.origin or '-',
             'date': _safe_date(d.insert_date),
@@ -2309,7 +2355,8 @@ def frm_incorporations_view(request):
         'delegations': OeesDelegations.objects.all().order_by('id_delegation'),
         'departments': departments,
         'pending_rows': _incorporation_rows(
-            OeesIncorporations.objects.filter(descartado=0, incorporated=0).order_by('-id')),
+            OeesIncorporations.objects.filter(descartado=0, incorporated=0)
+            .order_by('-insert_date', '-id')),
         'discarded_rows': _incorporation_rows(
             OeesIncorporations.objects.filter(descartado=1).order_by('-id')),
         'incorporated_rows': _incorporation_rows(
@@ -3194,6 +3241,134 @@ def frm_availability_view(request):
         return response
 
     return render(request, 'oe_inventory_py_web/frmAvailability.html', {'rows': rows})
+
+
+# ==========================================================================
+# Not Returned screen: items still assigned to staff who have already left
+# (oees_staff.fecha_baja is set) — i.e. material not handed back.
+# ==========================================================================
+
+def _parse_flexible_date(value):
+    """Parse a date stored as a string in mixed formats (legacy data has both
+    English yyyy-mm-dd and Spanish dd-mm-yyyy / dd/mm/yyyy). Returns a date or None.
+    """
+    if not value:
+        return None
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d'):
+        try:
+            return datetime.strptime(value.strip(), fmt).date()
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+def _with_person_subtotals(rows):
+    """Insert a highlighted subtotal row after each person's group (the rows
+    are already ordered by person). Subtotal rows carry sub=True."""
+    out = []
+    if not rows:
+        return out
+    current = rows[0]['person']
+    running = 0.0
+    for r in rows:
+        if r['person'] != current:
+            out.append({'sub': True, 'person': f'Total {current}', 'termination_date': '',
+                        'aging_days': None, 'category': '', 'serial': '', 'description': '',
+                        'value': running})
+            current = r['person']
+            running = 0.0
+        out.append(r)
+        running += r['value'] or 0
+    out.append({'sub': True, 'person': f'Total {current}', 'termination_date': '',
+                'aging_days': None, 'category': '', 'serial': '', 'description': '', 'value': running})
+    return out
+
+
+def _not_returned_rows():
+    """Items still assigned to terminated staff, grouped by person.
+
+    Covers devices, licenses, phones, access cards and access keys. Returns a
+    flat list ordered by person, each row with the termination date (normalised
+    to yyyy-mm-dd), the days elapsed since (aging), the serial/code, a
+    description and the value (if any).
+    """
+    today = datetime.now().date()
+    terminated = (OeesStaff.objects
+                  .exclude(fecha_baja__isnull=True).exclude(fecha_baja='')
+                  .order_by('name'))
+
+    rows = []
+    for staff in terminated:
+        parsed = _parse_flexible_date(staff.fecha_baja)
+        term_date = parsed.strftime('%Y-%m-%d') if parsed else (staff.fecha_baja or '')
+        aging = (today - parsed).days if parsed else None
+
+        def add(category, serial, description, value):
+            rows.append({
+                'sub': False,
+                'person': staff.name or '',
+                'termination_date': term_date,
+                'aging_days': aging,
+                'category': category,
+                'serial': serial or '',
+                'description': description or '',
+                'value': value,
+            })
+
+        for d in OeesDevices.objects.filter(persone_id=staff.id_staff):
+            desc = ' '.join(x for x in [d.type, d.brand, d.model] if x).strip()
+            add('Device', d.serial_number, desc, d.value)
+        for lic in OeesLicenses.objects.filter(persone_id=staff.id_staff):
+            add('License', lic.serial_number, lic.type, lic.value)
+        for p in OeesMobilePhones.objects.filter(persone_id=staff.id_staff):
+            desc = ' '.join(x for x in [p.type, p.brand, p.model] if x).strip()
+            add('Phone', p.serial_number, desc, p.value)
+        for c in OeesAccessCards.objects.filter(id_staff_id=staff.id_staff).exclude(state_card=4):
+            add('Access Card', c.ac_max, 'Office Access Card', None)
+        for k in OeesAccessKeys.objects.filter(id_staff_id=staff.id_staff):
+            add('Access Key', '', k.type or 'Access Key', None)
+
+    return rows
+
+
+def _not_returned_export_excel(rows):
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="not_returned.xlsx"'
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Not Returned"
+    ws.append(['Person', 'Termination Date', 'Days', 'Category', 'Serial / Code', 'Description', 'Value (€)'])
+    for r in rows:
+        ws.append([
+            r['person'], r['termination_date'],
+            r['aging_days'] if r['aging_days'] is not None else '',
+            r['category'], r['serial'], r['description'],
+            r['value'] if r['value'] is not None else '',
+        ])
+    wb.save(response)
+    return response
+
+
+@login_required
+def frm_not_returned_view(request):
+    rows = _not_returned_rows()
+    show_subtotals = request.GET.get('subtotals') == 'on'
+
+    total_value = sum(r['value'] for r in rows if r['value'])
+    total_items = len(rows)
+    display_rows = _with_person_subtotals(rows) if show_subtotals else rows
+
+    if request.GET.get('export') == 'excel':
+        return _not_returned_export_excel(display_rows)
+
+    return render(request, 'oe_inventory_py_web/frmNotReturned.html', {
+        'rows': display_rows,
+        'total_items': total_items,
+        'total_value': total_value,
+        'show_subtotals': show_subtotals,
+    })
 
 
 # ==========================================================================

@@ -621,6 +621,20 @@ class IncorporationsScreenTests(TestCase):
         response = self.client.get(reverse('api_get_incorporation'), {'id': 999999})
         self.assertFalse(response.json()['exists'])
 
+    def test_pending_ordered_by_date_descending(self):
+        # self.inc is dated 2026-01-01; add an older and a newer one.
+        common = dict(
+            department='IT', company_id=self.company.id_company,
+            delegation_id=self.deleg.id_delegation, cordedh=0, cordlessh=0,
+            usbchub=0, pdf=0, acad=0, incorporated=0, send=0, receive=0, descartado=0)
+        OeesIncorporations.objects.create(name='Older', insert_date=date(2025, 6, 1), **common)
+        OeesIncorporations.objects.create(name='Newer', insert_date=date(2026, 12, 1), **common)
+        self.client.force_login(self.user)
+        rows = self.client.get(reverse('frm_incorporations')).context['pending_rows']
+        dates = [r['date'] for r in rows]
+        self.assertEqual(dates, sorted(dates, reverse=True))   # newest date first
+        self.assertEqual(rows[0]['name'], 'Newer')
+
     def test_save_creates_incorporation(self):
         self.client.force_login(self.user)
         response = self.client.post(reverse('frm_incorporations'), {
@@ -1334,6 +1348,7 @@ class DevicesGridServerSideTests(TestCase):
         User = get_user_model()
         self.user = User.objects.create_user(
             username='dev_admin', password='pass12345', devices=1, reader=0)
+        self.company = OeesCompanies.objects.create(name='Acme')
         for i in range(3):
             OeesDevices.objects.create(
                 serial_number=f'SN-{i}', type='LAPTOP', brand='Dell',
@@ -1388,11 +1403,90 @@ class DevicesGridServerSideTests(TestCase):
         from oe_inventory_py_web.models import OeesDevices
         self.client.force_login(self.user)
         response = self.client.post(reverse('frm_devices'), {
-            'action': 'save', 'serial_number': 'BRAND-NEW-1',
+            'action': 'save', 'serial_number': 'BRAND-NEW-1', 'id_company': str(self.company.id_company),
             'type': 'LAPTOP', 'brand': 'HP', 'model': 'X1', 'value': '0',
         })
         self.assertEqual(response.status_code, 200)
         self.assertTrue(OeesDevices.objects.filter(serial_number='BRAND-NEW-1').exists())
+
+    def test_save_requires_a_company(self):
+        from oe_inventory_py_web.models import OeesDevices
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_devices'), {
+            'action': 'save', 'serial_number': 'NO-COMPANY-1',
+            'type': 'LAPTOP', 'brand': 'HP', 'model': 'X1', 'value': '0',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Please select a company')
+        self.assertFalse(OeesDevices.objects.filter(serial_number='NO-COMPANY-1').exists())
+
+    def test_api_get_device_reports_under_repair_flag(self):
+        # The AJAX lookup must say whether the device is in maintenance, so the
+        # banner can be toggled when switching devices without a page reload.
+        from datetime import date as _date
+        OeesUnderRepair.objects.create(
+            serial_number='SN-0', type='1', date_out=_date(2026, 1, 2),
+            destiny='Technical Service', notes='', value=0.0)  # date_in NULL = in repair
+        self.client.force_login(self.user)
+        in_repair = self.client.get(reverse('api_get_device'), {'serial_number': 'SN-0'}).json()
+        self.assertTrue(in_repair['under_repair'])
+        not_repair = self.client.get(reverse('api_get_device'), {'serial_number': 'SN-1'}).json()
+        self.assertFalse(not_repair['under_repair'])
+
+    def test_unassigned_device_renders_without_fk_error(self):
+        # SN-0 has no assigned person; loading it must not raise on the
+        # persone FK and must show "Unassigned".
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_devices'), {
+            'action': 'find', 'serial_number': 'SN-0',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['device_staff'], 'Unassigned')
+
+    def test_support_send_stores_destiny_type_and_note(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices'), {
+            'action': 'support', 'serial_number': 'SN-0', 'repair_destiny': 'Madrid SAT',
+        })
+        rep = OeesUnderRepair.objects.filter(serial_number='SN-0', date_in__isnull=True).first()
+        self.assertIsNotNone(rep)
+        self.assertEqual(rep.destiny, 'Madrid SAT')
+        self.assertEqual(rep.type, 'D')          # marked as a device
+        dev = OeesDevices.objects.get(serial_number='SN-0')
+        self.assertIn('Sent to maintenance (Madrid SAT)', dev.notes)
+
+    def test_support_message_rendered_on_same_page(self):
+        # The success message must appear on this render (consumed here), not
+        # leak to the next screen the user visits.
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_devices'), {
+            'action': 'support', 'serial_number': 'SN-0', 'repair_destiny': 'SAT',
+        })
+        self.assertContains(response, 'sent to technical support')
+
+    def test_sent_device_appears_in_under_repair_pending(self):
+        from oe_inventory_py_web.views import _under_repair_rows
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices'), {
+            'action': 'support', 'serial_number': 'SN-0', 'repair_destiny': 'SAT',
+        })
+        serials = [r['serial'] for r in _under_repair_rows(repaired=False)]
+        self.assertIn('SN-0', serials)
+
+    def test_support_receive_records_cost_and_note(self):
+        from datetime import date as _date
+        OeesUnderRepair.objects.create(
+            serial_number='SN-1', type='D', date_out=_date(2026, 1, 2),
+            destiny='SAT', notes='', value=0.0)
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices'), {
+            'action': 'support', 'serial_number': 'SN-1', 'repair_value': '45.50',
+        })
+        rep = OeesUnderRepair.objects.get(serial_number='SN-1')
+        self.assertIsNotNone(rep.date_in)       # received
+        self.assertEqual(rep.value, 45.50)       # cost recorded
+        dev = OeesDevices.objects.get(serial_number='SN-1')
+        self.assertIn('Received from maintenance', dev.notes)
 
 
 class UserManualTests(TestCase):
@@ -1519,3 +1613,76 @@ class SessionSecurityTests(TestCase):
         # Cookie dies on browser close, and the idle window is 30 minutes.
         self.assertTrue(session.get_expire_at_browser_close())
         self.assertEqual(session.get_expiry_age(), 30 * 60)
+
+
+class NotReturnedScreenTests(TestCase):
+    """Material still assigned to staff who already left (fecha_baja set)."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='nr_user', password='pass12345', not_returned=1, reader=0)
+        self.gone = OeesStaff.objects.create(
+            name='Zoe Gone', notes='', persona_fisica=1, state=0, fecha_baja='2026-01-01')
+        self.active = OeesStaff.objects.create(
+            name='Andy Active', notes='', persona_fisica=1, state=1)
+        OeesDevices.objects.create(
+            serial_number='DEV-GONE', type='LAPTOP', brand='Dell', model='X',
+            origin='New', insert_date=date(2026, 1, 1), value=500.0,
+            persone=self.gone, mobile_line=0)
+        OeesDevices.objects.create(
+            serial_number='DEV-ACTIVE', type='LAPTOP', brand='HP', model='Y',
+            origin='New', insert_date=date(2026, 1, 1), value=300.0,
+            persone=self.active, mobile_line=0)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('frm_not_returned')).status_code, 302)
+
+    def test_lists_only_terminated_staff_items(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('frm_not_returned'))
+        self.assertEqual(response.status_code, 200)
+        serials = [r['serial'] for r in response.context['rows']]
+        self.assertIn('DEV-GONE', serials)         # left -> shown
+        self.assertNotIn('DEV-ACTIVE', serials)    # active -> not shown
+
+    def test_row_has_person_date_aging_and_value(self):
+        self.client.force_login(self.user)
+        rows = self.client.get(reverse('frm_not_returned')).context['rows']
+        row = next(r for r in rows if r['serial'] == 'DEV-GONE')
+        self.assertEqual(row['person'], 'Zoe Gone')
+        self.assertEqual(row['termination_date'], '2026-01-01')
+        self.assertEqual(row['category'], 'Device')
+        self.assertEqual(row['value'], 500.0)
+        self.assertIsNotNone(row['aging_days'])
+
+    def test_total_value_only_counts_terminated(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('frm_not_returned'))
+        self.assertEqual(response.context['total_value'], 500.0)
+
+    def test_includes_access_keys(self):
+        from oe_inventory_py_web.models import OeesAccessKeys
+        OeesAccessKeys.objects.create(type='Main door', id_staff=self.gone, insert_date=date(2026, 1, 1))
+        self.client.force_login(self.user)
+        rows = self.client.get(reverse('frm_not_returned')).context['rows']
+        self.assertTrue(any(r['category'] == 'Access Key' and r['person'] == 'Zoe Gone' for r in rows))
+
+    def test_spanish_date_normalized_to_english_and_aged(self):
+        spanish = OeesStaff.objects.create(
+            name='Bob Spanish', notes='', persona_fisica=1, state=0, fecha_baja='15-03-2026')
+        OeesDevices.objects.create(
+            serial_number='DEV-ES', type='LAPTOP', brand='Dell', model='Z',
+            origin='New', insert_date=date(2026, 1, 1), value=100.0,
+            persone=spanish, mobile_line=0)
+        self.client.force_login(self.user)
+        rows = self.client.get(reverse('frm_not_returned')).context['rows']
+        row = next(r for r in rows if r['serial'] == 'DEV-ES')
+        self.assertEqual(row['termination_date'], '2026-03-15')   # dd-mm-yyyy -> yyyy-mm-dd
+        self.assertIsNotNone(row['aging_days'])                   # parsed -> aging computed
+
+    def test_subtotals_row_inserted_per_person(self):
+        self.client.force_login(self.user)
+        rows = self.client.get(reverse('frm_not_returned'), {'subtotals': 'on'}).context['rows']
+        subs = [r for r in rows if r.get('sub')]
+        self.assertTrue(any(r['person'] == 'Total Zoe Gone' and r['value'] == 500.0 for r in subs))

@@ -1,0 +1,95 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;">
+            <img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;">
+            Not Returned Material
+        </h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <div class="card shadow-sm p-3 bg-white">
+        <form method="get" class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex gap-3 align-items-center">
+                <span class="fw-bold text-info"><i class="bi bi-box-seam"></i> Items: {{ total_items|default:0 }}</span>
+                <span class="fw-bold text-info"><i class="bi bi-cash-coin"></i> Total value: {{ total_value|floatformat:2|intcomma }} €</span>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" name="subtotals" value="on" id="chk-subtotals"
+                        {% if show_subtotals %}checked{% endif %} onchange="this.form.submit();">
+                    <label class="form-check-label small" for="chk-subtotals">Show subtotals by person</label>
+                </div>
+            </div>
+            <a href="?export=excel{% if show_subtotals %}&subtotals=on{% endif %}" class="btn p-0 border-0" title="Export to Excel">
+                <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+            </a>
+        </form>
+
+        <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 250px); min-height: 200px; overflow-y: auto;">
+            <table id="tabla-not-returned" class="table table-sm table-hover align-middle border-bottom">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>Person</th>
+                        <th>Termination Date</th>
+                        <th class="text-center">Days</th>
+                        <th>Category</th>
+                        <th>Serial / Code</th>
+                        <th>Description</th>
+                        <th class="text-end">Value (€)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    {% if r.sub %}
+                    <tr class="fw-bold" style="background:#FFFF99;">
+                        <td colspan="6">{{ r.person }}</td>
+                        <td class="text-end">{{ r.value|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td>{{ r.person }}</td>
+                        <td>{{ r.termination_date }}</td>
+                        <td class="text-center {% if r.aging_days and r.aging_days > 30 %}text-danger fw-bold{% endif %}">
+                            {% if r.aging_days is not None %}{{ r.aging_days }}{% else %}—{% endif %}
+                        </td>
+                        <td>{{ r.category }}</td>
+                        <td>{{ r.serial }}</td>
+                        <td>{{ r.description }}</td>
+                        <td class="text-end">{% if r.value is not None %}{{ r.value|floatformat:2|intcomma }}{% endif %}</td>
+                    </tr>
+                    {% endif %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No pending material: everyone who left has returned everything. 🎉
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+        Swal.fire({
+            title: 'OE Inventory',
+            text: '{{ message|escapejs }}',
+            imageUrl: '/static/octopus.png',
+            imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+            icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#FF48D8',
+        });
+        {% endfor %}
+    });
+</script>
+{% endif %}
+{% endblock %}
