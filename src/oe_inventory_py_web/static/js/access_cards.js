@@ -26,7 +26,17 @@ function fillCard(d) {
     document.getElementById('input-card').value = d.card || '';
     document.getElementById('input-fermax').value = d.fermax || '';
     document.getElementById('input-pin').value = d.pin || '';
-    document.getElementById('select-staff').value = d.staff_id || '';
+    // The staff dropdown only lists active people; if the card is assigned to
+    // someone inactive (e.g. already terminated), add that option on the fly
+    // so the name is shown instead of an empty selection.
+    const selStaff = document.getElementById('select-staff');
+    if (d.staff_id && !selStaff.querySelector('option[value="' + d.staff_id + '"]')) {
+        const opt = document.createElement('option');
+        opt.value = d.staff_id;
+        opt.textContent = d.staff_name || ('#' + d.staff_id);
+        selStaff.appendChild(opt);
+    }
+    selStaff.value = d.staff_id || '';
     document.getElementById('select-state').value = d.state_id || '';
     document.getElementById('input-obs').value = d.obs || '';
     document.getElementById('textarea-notes').value = d.notes || '';

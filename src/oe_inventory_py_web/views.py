@@ -3836,16 +3836,16 @@ def _card_save(request):
     staff_id = request.POST.get('staff') or None
     state_id = request.POST.get('state') or None
 
-    if state_id:
-        state = OeesAccessCardsStates.objects.filter(id_state=state_id).first()
-        if state and (state.description or '').upper() == 'LOST':
-            messages.error(request, "Cannot update a card in LOST state.")
-            return redirect(f"{reverse('frm_access_cards')}?card={code}")
-
     now = datetime.now().strftime('%d/%m/%Y %H:%M')
     try:
         card = OeesAccessCards.objects.filter(ac_max=code).first()
         if card:
+            # Block edits only if the card is ALREADY lost (check its CURRENT
+            # state, not the new one) — marking a card AS lost must be allowed.
+            current = OeesAccessCardsStates.objects.filter(id_state=card.state_card).first()
+            if current and (current.description or '').strip().upper() == 'LOST':
+                messages.error(request, "This card is in LOST state and can't be modified.")
+                return redirect(f"{reverse('frm_access_cards')}?card={code}")
             prev = request.POST.get('notes', '').strip() or (card.notes or '')
             card.fermax_mif = fermax
             card.pin_card = pin

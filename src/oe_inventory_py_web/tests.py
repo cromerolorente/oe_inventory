@@ -1039,6 +1039,37 @@ class AccessCardsScreenTests(TestCase):
         self.assertFalse(OeesAccessCardsPins.objects.filter(pin='1234').exists())  # consumed
         self.assertTrue(OeesAccessCardsPins.objects.filter(pin='5678').exists())   # untouched
 
+    def test_can_mark_card_as_lost(self):
+        OeesAccessCardsStates.objects.create(id_state=2, description='LOST')
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_access_cards'), {
+            'action': 'save', 'card': 'C1', 'fermax': 'F1', 'state': '2', 'obs': '',
+        })
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.state_card, 2)   # marking AS lost is allowed
+
+    def test_cannot_modify_a_card_already_lost(self):
+        OeesAccessCardsStates.objects.create(id_state=2, description='LOST')
+        self.card.state_card = 2
+        self.card.save()
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_access_cards'), {
+            'action': 'save', 'card': 'C1', 'fermax': 'CHANGED', 'state': '1', 'obs': '',
+        })
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.fermax_mif, 'F1')   # blocked: unchanged
+        self.assertEqual(self.card.state_card, 2)       # still lost
+
+    def test_api_get_card_returns_assigned_staff_name(self):
+        staff = OeesStaff.objects.create(
+            name='Gone Person', notes='', persona_fisica=1, state=0, fecha_baja='2026-01-01')
+        self.card.id_staff = staff
+        self.card.save()
+        self.client.force_login(self.user)
+        data = self.client.get(reverse('api_get_card'), {'card': 'C1'}).json()['data']
+        self.assertEqual(data['staff_id'], staff.id_staff)
+        self.assertEqual(data['staff_name'], 'Gone Person')
+
     def test_card_pin_api_returns_available_pin(self):
         from oe_inventory_py_web.models import OeesAccessCardsPins
         OeesAccessCardsPins.objects.create(pin='4321')
