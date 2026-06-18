@@ -1,0 +1,58 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;">
+            <img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;">
+            Omada — Sites Overview
+        </h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    {% if not configured %}
+    <div class="card shadow-sm p-4 bg-white">
+        <h6 class="fw-bold"><i class="bi bi-info-circle"></i> Omada integration not configured</h6>
+        <p class="mb-2 text-muted">To show the Omada data, set these environment variables (in <code>.env</code> locally,
+        or as Environment Properties on the server):</p>
+        <ul class="text-muted small mb-0">
+            <li><code>OMADA_BASE_URL</code> — the controller connector URL.</li>
+            <li><code>OMADA_OMADAC_ID</code> — your controller (Omadac) id.</li>
+            <li><code>OMADA_CLIENT_ID</code> / <code>OMADA_CLIENT_SECRET</code> — from an app created in
+                Omada → Settings → Platform Integration → Open API.</li>
+        </ul>
+    </div>
+    {% elif error %}
+    <div class="alert alert-danger shadow-sm" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+    </div>
+    {% else %}
+    <div class="card shadow-sm p-3 bg-white">
+        <div class="table-responsive app-surface" style="max-height: calc(100vh - 250px); min-height: 200px; overflow-y: auto;">
+            <table class="table table-sm table-hover align-middle border-bottom">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th>Site</th>
+                        <th class="text-center">Devices</th>
+                        <th class="text-center">Clients</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td>{{ r.site }}</td>
+                        <td class="text-center">{% if r.devices is not None %}{{ r.devices }}{% else %}—{% endif %}</td>
+                        <td class="text-center">{% if r.clients is not None %}{{ r.clients }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-4">No sites returned by the controller.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

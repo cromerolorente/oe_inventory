@@ -70,11 +70,12 @@ def manual_help(request):
     return {'manual_anchor': MANUAL_ANCHORS.get(url_name, '')}
 
 
-def mdi_status_counters(request):
-    # If the user is not logged in, skip the calculation.
-    if not request.user.is_authenticated:
-        return {}
+def pending_counts():
+    """(total_orders, total_cards): pending orders and pending access cards.
 
+    Shared by the page context processor and the footer-refresh API endpoint so
+    both report identical figures.
+    """
     total_orders = 0
     total_cards = 0
 
@@ -84,10 +85,11 @@ def mdi_status_counters(request):
             cursor.execute("SELECT count(*) FROM oees_orders WHERE tramitado = 0 AND cancelado = 0")
             total_orders = cursor.fetchone()[0]
 
-            # 2. Pending access cards (staff + visitors) whose state is PENDING.
-            #    The PENDING state id is looked up by description, not hardcoded.
+            # 2. Pending access cards (staff + visitors). There can be several
+            #    "pending" states (e.g. "PENDING ACTIVATION"), so we match any
+            #    state whose description contains the word PENDING, by id.
             cursor.execute(
-                "SELECT id_state FROM oees_access_cards_states WHERE UPPER(TRIM(description)) = 'PENDING'")
+                "SELECT id_state FROM oees_access_cards_states WHERE UPPER(TRIM(description)) LIKE '%PENDING%'")
             pending_ids = [r[0] for r in cursor.fetchall()]
             if pending_ids:
                 ph = ",".join(["%s"] * len(pending_ids))
@@ -99,6 +101,16 @@ def mdi_status_counters(request):
                 total_cards += cursor.fetchone()[0]
         except Exception:
             logger.exception("Error computing MDI status counters")
+
+    return total_orders, total_cards
+
+
+def mdi_status_counters(request):
+    # If the user is not logged in, skip the calculation.
+    if not request.user.is_authenticated:
+        return {}
+
+    total_orders, total_cards = pending_counts()
 
     # Count online users from the persisted sessions, but always include the
     # user making this request: they are online by definition, and their own

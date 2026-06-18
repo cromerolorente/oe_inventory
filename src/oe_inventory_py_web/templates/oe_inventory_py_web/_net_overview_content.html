@@ -1,0 +1,123 @@
+{% if not configured %}
+<div class="card shadow-sm p-4 bg-white">
+    <h6 class="fw-bold"><i class="bi bi-info-circle"></i> Nebula integration not configured</h6>
+    <p class="mb-2 text-muted">To show the data, set these environment variables (in <code>.env</code> locally,
+    or as Environment Properties on the server):</p>
+    <ul class="text-muted small mb-0">
+        <li><code>NEBULA_BASE_URL</code> — the Nebula API base URL (e.g. <code>https://api.nebula.zyxel.com</code>).</li>
+        <li><code>NEBULA_API_KEY</code> — the API key generated in Nebula Control Center (sent as the <code>X-ZyxelNebula-API-Key</code> header).</li>
+        <li><code>NEBULA_ORG_ID</code> — <em>optional</em>; if omitted, all organizations reachable with the key are listed.</li>
+    </ul>
+</div>
+{% elif error %}
+<div class="alert alert-danger shadow-sm" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+</div>
+{% else %}
+    {% for s in rows %}
+    <div class="card shadow-sm mb-3 bg-white">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                <h6 class="mb-0 fw-bold" style="color: #FF48D8;">{{ s.site }}</h6>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm py-0"
+                        data-site="{{ s.site }}" data-topology="{{ s.topology_json }}"
+                        onclick="showTopology(this)">
+                        <i class="bi bi-diagram-3"></i> Topology
+                    </button>
+                    {% if s.alerts %}
+                    <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill"></i> {{ s.alerts }} alert{{ s.alerts|pluralize }}</span>
+                    {% else %}
+                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> OK</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- WAN -->
+                <div class="col-lg col-md-4 col-sm-6">
+                    <div class="border rounded p-3 h-100 text-center">
+                        <div class="text-uppercase fw-semibold text-secondary mb-2" style="font-size: 1rem;"><i class="bi bi-globe2"></i> WAN</div>
+                        <div class="d-flex justify-content-around align-items-start">
+                            <div>
+                                <div class="fw-bold text-info" style="font-size: 2rem;">{{ s.wan.enabled|default_if_none:0 }}</div>
+                                <div class="small text-muted">enabled</div>
+                            </div>
+                            <div>
+                                {% if s.wan.operational is None %}
+                                <div class="fw-bold text-warning" style="font-size: 2rem;" title="Status not available for this gateway model yet">—</div>
+                                <div class="small text-muted">operational</div>
+                                {% else %}
+                                <div class="fw-bold text-success" style="font-size: 2rem;">{{ s.wan.operational }}</div>
+                                <div class="small text-muted">operational</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Firewalls -->
+                <div class="col-lg col-md-4 col-sm-6">
+                    <div class="border rounded p-3 h-100 text-center">
+                        <div class="text-uppercase fw-semibold text-secondary mb-2" style="font-size: 1rem;"><i class="bi bi-shield-lock"></i> Firewalls</div>
+                        <div class="fw-bold text-info" style="font-size: 2rem;">{{ s.firewalls.total }}</div>
+                        <div class="small">
+                            <span class="text-success">● {{ s.firewalls.online }} online</span>
+                            <span class="text-danger ms-2">● {{ s.firewalls.offline }} offline</span>
+                        </div>
+                        {% if s.firewalls.outdated %}<div class="small text-warning fw-semibold" title="Devices with outdated firmware"><i class="bi bi-arrow-up-circle"></i> {{ s.firewalls.outdated }} outdated</div>{% endif %}
+                    </div>
+                </div>
+                <!-- Switches -->
+                <div class="col-lg col-md-4 col-sm-6">
+                    <div class="border rounded p-3 h-100 text-center">
+                        <div class="text-uppercase fw-semibold text-secondary mb-2" style="font-size: 1rem;"><i class="bi bi-hdd-network"></i> Switches</div>
+                        <div class="fw-bold text-info" style="font-size: 2rem;">{{ s.switches.total }}</div>
+                        <div class="small">
+                            <span class="text-success">● {{ s.switches.online }} online</span>
+                            <span class="text-danger ms-2">● {{ s.switches.offline }} offline</span>
+                        </div>
+                        {% if s.switches.outdated %}<div class="small text-warning fw-semibold" title="Devices with outdated firmware"><i class="bi bi-arrow-up-circle"></i> {{ s.switches.outdated }} outdated</div>{% endif %}
+                    </div>
+                </div>
+                <!-- Access Points -->
+                <div class="col-lg col-md-4 col-sm-6">
+                    <div class="border rounded p-3 h-100 text-center">
+                        <div class="text-uppercase fw-semibold text-secondary mb-2" style="font-size: 1rem;"><i class="bi bi-broadcast-pin"></i> Access Points</div>
+                        <div class="fw-bold text-info" style="font-size: 2rem;">{{ s.aps.total }}</div>
+                        <div class="small">
+                            <span class="text-success">● {{ s.aps.online }} online</span>
+                            <span class="text-danger ms-2">● {{ s.aps.offline }} offline</span>
+                        </div>
+                        {% if s.aps.outdated %}<div class="small text-warning fw-semibold" title="Devices with outdated firmware"><i class="bi bi-arrow-up-circle"></i> {{ s.aps.outdated }} outdated</div>{% endif %}
+                    </div>
+                </div>
+                <!-- Clients -->
+                <div class="col-lg col-md-4 col-sm-6">
+                    <div class="border rounded p-3 h-100 text-center">
+                        <div class="text-uppercase fw-semibold text-secondary mb-2" style="font-size: 1rem;"><i class="bi bi-people-fill"></i> Clients</div>
+                        <div class="fw-bold text-info" style="font-size: 2rem;">{{ s.clients.total|default_if_none:'—' }}</div>
+                        <div class="small">
+                            <span><i class="bi bi-wifi"></i> {{ s.clients.wifi|default_if_none:'—' }}</span>
+                            <span class="ms-2"><i class="bi bi-ethernet"></i> {{ s.clients.wired|default_if_none:'—' }}</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Alerts -->
+                <div class="col-lg col-md-4 col-sm-6">
+                    <div class="border rounded p-3 h-100 text-center {% if s.alerts %}border-danger{% endif %}"
+                        {% if s.alerts %}role="button" style="cursor: pointer;"
+                        title="Click for details"
+                        data-site="{{ s.site }}" data-alerts="{{ s.alert_json }}"
+                        onclick="showNebulaAlerts(this)"{% endif %}>
+                        <div class="text-uppercase fw-semibold text-secondary mb-2" style="font-size: 1rem;"><i class="bi bi-exclamation-triangle"></i> Alerts</div>
+                        <div class="fw-bold {% if s.alerts %}text-danger{% else %}text-success{% endif %}" style="font-size: 2rem;">{{ s.alerts }}</div>
+                        <div class="small text-muted">{% if s.alerts %}offline / outdated — click for details{% else %}no issues{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card shadow-sm p-4 bg-white text-center text-muted">No sites returned.</div>
+    {% endfor %}
+{% endif %}

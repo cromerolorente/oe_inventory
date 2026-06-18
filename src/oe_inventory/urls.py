@@ -48,6 +48,10 @@ urlpatterns = [
     path('api/online-users/', views.api_online_users, name='api_online_users'),
     path('manual/', views.manual_view, name='manual'),
     path('not-returned/', views.frm_not_returned_view, name='frm_not_returned'),
+    path('omada/', views.frm_omada_view, name='frm_omada'),
+    path('net-overview/', views.frm_net_overview_view, name='frm_net_overview'),
+    path('api/net-alerts/', views.api_net_alerts, name='api_net_alerts'),
+    path('api/footer-counts/', views.api_footer_counts, name='api_footer_counts'),
 
     # Licenses screen
     path('licenses/', views.frm_licenses_view, name='frm_licenses'),

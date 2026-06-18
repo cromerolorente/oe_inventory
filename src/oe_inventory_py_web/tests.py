@@ -1717,3 +1717,338 @@ class NotReturnedScreenTests(TestCase):
         rows = self.client.get(reverse('frm_not_returned'), {'subtotals': 'on'}).context['rows']
         subs = [r for r in rows if r.get('sub')]
         self.assertTrue(any(r['person'] == 'Total Zoe Gone' and r['value'] == 500.0 for r in subs))
+
+
+class NebulaGatewayWanTests(TestCase):
+    """nebula._gateway_wan: enabled WAN count + operational link count."""
+
+    def _settings(self):
+        from django.test import override_settings
+        return override_settings(NEBULA_BASE_URL='https://x', NEBULA_API_KEY='t')
+
+    def test_enabled_count_and_operational_unknown_when_ports_status_fails(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+
+        def fake_request(path, method='GET', body=None):
+            if path.endswith('/interface-settings'):
+                return {'wan': [{'interface': 'ge1', 'enabled': True},
+                                {'interface': 'ge2', 'enabled': True},
+                                {'interface': 'ge3', 'enabled': False}]}
+            if path.endswith('/ports-status'):
+                raise nebula.NebulaError('500')
+            return None
+
+        with self._settings(), patch('oe_inventory_py_web.nebula._request', side_effect=fake_request):
+            w = nebula._gateway_wan('site1', 'dev1')
+        self.assertEqual(w['enabled'], 2)        # ge1, ge2 (ge3 disabled)
+        self.assertIsNone(w['operational'])      # ports-status failed -> unknown
+
+    def test_operational_counts_wan_ports_with_link(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+
+        def fake_request(path, method='GET', body=None):
+            if path.endswith('/interface-settings'):
+                return {'wan': [{'interface': 'ge1', 'enabled': True},
+                                {'interface': 'ge2', 'enabled': True}]}
+            if path.endswith('/ports-status'):
+                return [{'portNumber': '1', 'linkSpeed': '1000M'},   # WAN, up
+                        {'portNumber': '2', 'linkSpeed': None},       # WAN, down
+                        {'portNumber': '13', 'linkSpeed': '1000M'}]   # LAN, ignored
+            return None
+
+        with self._settings(), patch('oe_inventory_py_web.nebula._request', side_effect=fake_request):
+            w = nebula._gateway_wan('site1', 'dev1')
+        self.assertEqual(w['enabled'], 2)
+        self.assertEqual(w['operational'], 1)    # only ge1 has a live link
+
+
+class NebulaFirmwareTests(TestCase):
+    """Outdated-firmware detection (per-type counters + alerts)."""
+
+    def test_firmware_status_maps_devid_to_info(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+        data = [
+            {'devId': 'a', 'currentVersion': '1.0', 'latestVersion': '1.0', 'status': 'UP_TO_DATE'},
+            {'devId': 'b', 'currentVersion': '1.0', 'latestVersion': '2.0', 'status': 'NOT_UP_TO_DATE'},
+        ]
+        with patch('oe_inventory_py_web.nebula._request', return_value=data):
+            m = nebula._firmware_status('site1')
+        self.assertEqual(m['b']['status'], 'NOT_UP_TO_DATE')
+        self.assertEqual(m['b']['latest'], '2.0')
+
+    def test_device_stats_counts_outdated_per_family(self):
+        from oe_inventory_py_web import nebula
+        devices = [
+            {'devId': 's1', 'type': 'SW'}, {'devId': 's2', 'type': 'SW'},
+            {'devId': 'a1', 'type': 'AP'},
+            {'devId': 'g1', 'type': 'GWH'},
+        ]
+        online = {'s1': True, 's2': True, 'a1': True, 'g1': True}
+        outdated = {'s2', 'a1'}
+        sw, ap, fw, offline = nebula._device_stats(devices, online, outdated)
+        self.assertEqual(sw['outdated'], 1)   # s2
+        self.assertEqual(ap['outdated'], 1)   # a1
+        self.assertEqual(fw['outdated'], 0)
+        self.assertEqual(offline, [])
+
+
+class NebulaClientCountsTests(TestCase):
+    """nebula._online_clients / _client_counts: only ONLINE clients, split wifi/wired."""
+
+    BY_ID = {'ap1': {'devId': 'ap1', 'type': 'AP'},
+             'sw1': {'devId': 'sw1', 'type': 'SW'},
+             'gw1': {'devId': 'gw1', 'type': 'GWH'}}
+
+    def test_online_clients_filters_offline(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+        resp = {'data': [
+            {'status': 'ONLINE', 'connectedTo': 'ap1'},
+            {'status': 'OFFLINE', 'connectedTo': 'ap1'},
+            {'status': 'ONLINE', 'connectedTo': 'sw1'},
+        ]}
+        with patch('oe_inventory_py_web.nebula._request', return_value=resp):
+            clients = nebula._online_clients('site1')
+        self.assertEqual(len(clients), 2)
+        self.assertTrue(all(c['status'] == 'ONLINE' for c in clients))
+
+    def test_online_clients_none_when_endpoint_fails(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+        with patch('oe_inventory_py_web.nebula._request', side_effect=nebula.NebulaError('boom')):
+            self.assertIsNone(nebula._online_clients('site1'))
+
+    def test_counts_split_by_connected_device(self):
+        from oe_inventory_py_web import nebula
+        clients = [
+            {'connectedTo': 'ap1'}, {'connectedTo': 'ap1'},   # wifi x2
+            {'connectedTo': 'sw1'},                            # wired
+            {'connectedTo': 'gw1'},                            # wired (gateway)
+            {'connectedTo': 'unknown'},                        # wired (fallback)
+        ]
+        self.assertEqual(nebula._client_counts(clients, self.BY_ID),
+                         {'wifi': 2, 'wired': 3, 'total': 5})
+
+    def test_counts_none_when_clients_unavailable(self):
+        from oe_inventory_py_web import nebula
+        self.assertEqual(nebula._client_counts(None, self.BY_ID),
+                         {'wifi': None, 'wired': None, 'total': None})
+
+    def test_build_topology_groups_and_counts(self):
+        from oe_inventory_py_web import nebula
+        devices = [
+            {'devId': 'sw1', 'type': 'SW', 'name': 'SW-A', 'model': 'X1'},
+            {'devId': 'ap1', 'type': 'AP', 'name': 'AP-A', 'model': 'W1'},
+            {'devId': 'gw1', 'type': 'GWH', 'name': 'FW-A', 'model': 'USG'},
+        ]
+        online = {'sw1': True, 'ap1': False, 'gw1': True}
+        clients = [{'connectedTo': 'ap1'}, {'connectedTo': 'sw1'}, {'connectedTo': 'sw1'}]
+        topo = nebula._build_topology('Site X', devices, online, clients)
+        self.assertEqual(topo['site'], 'Site X')
+        self.assertEqual(len(topo['gateways']), 1)
+        self.assertEqual(topo['switches'][0]['clients'], 2)
+        self.assertFalse(topo['aps'][0]['online'])
+
+
+class OmadaScreenTests(TestCase):
+    """Omada sites-overview screen (server-rendered; API client mocked)."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='om_user', password='pass12345', omada=1, reader=0)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('frm_omada')).status_code, 302)
+
+    def test_not_configured_shows_notice(self):
+        from django.test import override_settings
+        with override_settings(OMADA_BASE_URL='', OMADA_OMADAC_ID='',
+                               OMADA_CLIENT_ID='', OMADA_CLIENT_SECRET=''):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('frm_omada'))
+            self.assertEqual(resp.status_code, 200)
+            self.assertFalse(resp.context['configured'])
+            self.assertContains(resp, 'not configured')
+
+    def test_renders_site_overview_when_configured(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        rows = [{'site': 'HQ', 'devices': 5, 'clients': 12}]
+        with override_settings(OMADA_BASE_URL='https://x', OMADA_OMADAC_ID='id',
+                               OMADA_CLIENT_ID='c', OMADA_CLIENT_SECRET='s'):
+            with patch('oe_inventory_py_web.omada.site_overview', return_value=rows):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('frm_omada'))
+                self.assertTrue(resp.context['configured'])
+                self.assertContains(resp, 'HQ')
+
+    def test_shows_error_when_api_fails(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        with override_settings(OMADA_BASE_URL='https://x', OMADA_OMADAC_ID='id',
+                               OMADA_CLIENT_ID='c', OMADA_CLIENT_SECRET='s'):
+            with patch('oe_inventory_py_web.omada.site_overview', side_effect=Exception('boom')):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('frm_omada'))
+                self.assertIsNotNone(resp.context['error'])
+                self.assertContains(resp, 'Could not reach the Omada controller')
+
+
+class NetOverviewScreenTests(TestCase):
+    """Net Overview dashboard (Nebula-backed, AJAX + spinner; client mocked)."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='no_user', password='pass12345', net_overview=1, reader=0)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('frm_net_overview')).status_code, 302)
+
+    def test_shell_loads(self):
+        # The initial page is a lightweight shell; data arrives via AJAX.
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_net_overview'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'net-overview-content')
+
+    def test_partial_not_configured_shows_notice(self):
+        from django.test import override_settings
+        with override_settings(NEBULA_BASE_URL='', NEBULA_API_KEY='', NEBULA_ORG_ID=''):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('frm_net_overview'), {'partial': '1'})
+            self.assertEqual(resp.status_code, 200)
+            self.assertFalse(resp.context['configured'])
+            self.assertContains(resp, 'not configured')
+
+    def test_partial_renders_site_overview_when_configured(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        rows = [{
+            'site': 'Madrid',
+            'wan': {'enabled': 2, 'operational': None},
+            'switches': {'total': 2, 'online': 2, 'offline': 0, 'outdated': 0},
+            'aps': {'total': 3, 'online': 3, 'offline': 0, 'outdated': 1},
+            'firewalls': {'total': 1, 'online': 1, 'offline': 0, 'outdated': 0},
+            'clients': {'wifi': 10, 'wired': 5, 'total': 15},
+            'outdated': 1,
+            'alerts': 1,
+        }]
+        with override_settings(NEBULA_BASE_URL='https://x', NEBULA_API_KEY='t', NEBULA_ORG_ID='o'):
+            with patch('oe_inventory_py_web.nebula.site_overview', return_value=rows):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('frm_net_overview'), {'partial': '1'})
+                self.assertTrue(resp.context['configured'])
+                self.assertContains(resp, 'Madrid')
+                self.assertContains(resp, 'Access Points')
+                self.assertContains(resp, 'Firewalls')
+                self.assertContains(resp, 'WAN')
+                self.assertContains(resp, 'enabled')
+                # operational unknown (ports-status 500) -> shows a dash, not 0
+                self.assertContains(resp, 'operational')
+                # orange outdated-firmware counter on the AP panel
+                self.assertContains(resp, '1 outdated')
+
+    def test_partial_shows_error_when_api_fails(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        with override_settings(NEBULA_BASE_URL='https://x', NEBULA_API_KEY='t', NEBULA_ORG_ID='o'):
+            with patch('oe_inventory_py_web.nebula.site_overview', side_effect=Exception('boom')):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('frm_net_overview'), {'partial': '1'})
+                self.assertIsNotNone(resp.context['error'])
+                self.assertContains(resp, 'Could not reach the Nebula API')
+
+
+class NetAlertsBadgeTests(TestCase):
+    """Footer 'Net Alerts' badge endpoint (api_net_alerts)."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='na_user', password='pass12345', net_overview=1, reader=0)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('api_net_alerts')).status_code, 302)
+
+    def test_forbidden_without_permission(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username='na_noperm', password='pass12345', net_overview=0, reader=0)
+        self.client.force_login(other)
+        resp = self.client.get(reverse('api_net_alerts'))
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(resp.json()['ok'])
+
+    def test_sums_alerts_across_sites(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        rows = [{'alerts': 1}, {'alerts': 2}, {'alerts': 0}]
+        with override_settings(NEBULA_BASE_URL='https://x', NEBULA_API_KEY='t', NEBULA_ORG_ID='o'):
+            with patch('oe_inventory_py_web.nebula.site_overview', return_value=rows):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('api_net_alerts'))
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.json(), {'alerts': 3, 'ok': True})
+
+    def test_not_configured_returns_zero_not_ok(self):
+        from django.test import override_settings
+        with override_settings(NEBULA_BASE_URL='', NEBULA_API_KEY='', NEBULA_ORG_ID=''):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('api_net_alerts'))
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.json(), {'alerts': 0, 'ok': False})
+
+    def test_api_failure_returns_zero_not_ok(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        with override_settings(NEBULA_BASE_URL='https://x', NEBULA_API_KEY='t', NEBULA_ORG_ID='o'):
+            with patch('oe_inventory_py_web.nebula.site_overview', side_effect=Exception('boom')):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('api_net_alerts'))
+                self.assertEqual(resp.status_code, 200)
+                self.assertFalse(resp.json()['ok'])
+
+    def test_badge_rendered_for_net_overview_user(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('mdi_home'))
+        # The div markup is only emitted for users with the permission (the JS
+        # that references the id by string is always present, hence id="..").
+        self.assertContains(resp, 'id="net-alerts-panel"')
+        self.assertContains(resp, 'Net Alerts:')
+
+    def test_badge_hidden_for_user_without_permission(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username='na_noperm2', password='pass12345', net_overview=0, reader=1)
+        self.client.force_login(other)
+        resp = self.client.get(reverse('mdi_home'))
+        self.assertNotContains(resp, 'id="net-alerts-panel"')
+
+
+class FooterCountsApiTests(TestCase):
+    """Footer live counters endpoint (api_footer_counts)."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='fc_user', password='pass12345', reader=1)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('api_footer_counts')).status_code, 302)
+
+    def test_returns_pending_counts(self):
+        from unittest.mock import patch
+        with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(7, 4)):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('api_footer_counts'))
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['total_orders'], 7)
+            self.assertEqual(data['total_cards'], 4)
+            # The requester is always counted as online.
+            self.assertGreaterEqual(data['online_users'], 1)

@@ -40,6 +40,8 @@ class CustomUser(AbstractUser):
     facturas = models.IntegerField(default=0, verbose_name="facturas")
     printers = models.IntegerField(default=0, verbose_name="printers")
     not_returned = models.IntegerField(default=0, verbose_name="not_returned")
+    omada = models.IntegerField(default=0, verbose_name="omada")
+    net_overview = models.IntegerField(default=0, verbose_name="net_overview")
 
 class OeesAccessCards(models.Model):
     id_card = models.AutoField(primary_key=True)

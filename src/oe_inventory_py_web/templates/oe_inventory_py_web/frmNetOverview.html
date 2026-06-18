@@ -1,0 +1,174 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;">
+            <img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;">
+            Net Overview
+        </h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <!-- Filled in via AJAX; until then the full-screen overlay (in base_mdi)
+         shows "Recovering information…" because the Nebula API makes several
+         calls per site and can take a few seconds. -->
+    <div id="net-overview-content"></div>
+</div>
+
+<style>
+    .topo-wrap{--line:#c9ced6;--blue:#0d6efd;--green:#16a34a;--red:#dc2626;}
+    .topo-legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;font-size:.8rem;color:#6b7280;margin-bottom:6px;}
+    .topo-legend .topo-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;}
+    .topo-dot.on{background:var(--green)} .topo-dot.off{background:var(--red)}
+    .topo-tree{display:flex;flex-direction:column;align-items:center;}
+    .topo-spine{width:2px;height:22px;background:var(--line);}
+    .topo-site{background:#FF48D8;color:#fff;border-radius:12px;padding:12px 20px;text-align:center;
+        font-weight:800;box-shadow:0 4px 14px rgba(255,72,216,.28);min-width:220px;}
+    .topo-site .topo-meta{font-size:.76rem;font-weight:500;opacity:.92;margin-top:4px;}
+    .topo-tier{width:100%;}
+    .topo-tlabel{display:flex;align-items:center;justify-content:center;gap:8px;color:#6b7280;
+        font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin:2px 0 12px;}
+    .topo-tlabel::before,.topo-tlabel::after{content:"";height:1px;background:var(--line);flex:1;max-width:110px;}
+    .topo-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
+    .topo-dev{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:9px 11px;width:150px;
+        box-shadow:0 1px 3px rgba(0,0,0,.06);text-align:left;}
+    .topo-top{display:flex;align-items:center;gap:7px;}
+    .topo-ic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:0 0 auto;background:#eef2ff;color:var(--blue);}
+    .topo-ap .topo-ic{background:#f0fdf4;color:var(--green);}
+    .topo-nm{font-weight:700;font-size:.8rem;line-height:1.1;word-break:break-word;}
+    .topo-md{color:#6b7280;font-size:.71rem;margin-top:2px;}
+    .topo-ft{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+    .topo-st{font-size:.71rem;color:var(--green);font-weight:600;}
+    .topo-cl{font-size:.71rem;color:#6b7280;}
+    .topo-dev.topo-off{border-color:#fecaca;background:#fff5f5;}
+    .topo-dev.topo-off .topo-st{color:var(--red);} .topo-dev.topo-off .topo-ic{background:#fef2f2;color:var(--red);}
+    .topo-icn{width:14px;height:14px;display:block;}
+    .topo-foot{margin-top:22px;font-size:.76rem;color:#6b7280;background:#fffbeb;border:1px solid #fde68a;
+        border-radius:8px;padding:9px 11px;text-align:left;}
+    .topo-foot b{color:#92400e;}
+</style>
+
+<script>
+    // Renders a site's topology (gateways -> switches -> access points) in a
+    // modal. Data comes from the panel button's data-topology attribute.
+    function showTopology(el) {
+        var t = {};
+        try { t = JSON.parse(el.dataset.topology || '{}'); } catch (e) { t = {}; }
+        function esc(v) { var s = document.createElement('div'); s.textContent = (v == null ? '' : v); return s.innerHTML; }
+
+        var SW = '<svg class="topo-icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="8" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/></svg>';
+        var AP = '<svg class="topo-icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12a7 7 0 0 1 14 0"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0"/><circle cx="12" cy="12" r="1.2"/><path d="M12 13v6"/></svg>';
+        var GW = '<svg class="topo-icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 14h2"/></svg>';
+
+        function card(d, kind, icon) {
+            return '<div class="topo-dev topo-' + kind + (d.online ? '' : ' topo-off') + '">'
+                + '<div class="topo-top"><span class="topo-ic">' + icon + '</span><span class="topo-nm">' + esc(d.name) + '</span></div>'
+                + '<div class="topo-md">' + esc(d.model) + '</div>'
+                + '<div class="topo-ft"><span class="topo-st">' + (d.online ? '● online' : '● offline') + '</span>'
+                + '<span class="topo-cl">👥 <b>' + (d.clients || 0) + '</b></span></div></div>';
+        }
+        function tier(label, list, kind, icon) {
+            if (!list || !list.length) return '';
+            return '<div class="topo-spine"></div><div class="topo-tier"><div class="topo-tlabel">' + label + '</div>'
+                + '<div class="topo-row">' + list.map(function (d) { return card(d, kind, icon); }).join('') + '</div></div>';
+        }
+
+        var gws = t.gateways || [], sws = t.switches || [], aps = t.aps || [];
+        var total = gws.length + sws.length + aps.length;
+        var online = gws.concat(sws, aps).filter(function (d) { return d.online; }).length;
+
+        var html;
+        if (!total) {
+            html = '<p class="text-muted mb-0">No devices in this site.</p>';
+        } else {
+            html = '<div class="topo-wrap">'
+                + '<div class="topo-legend"><span><span class="topo-dot on"></span>Online</span>'
+                + '<span><span class="topo-dot off"></span>Offline</span>'
+                + '<span>👥 clients connected now</span></div>'
+                + '<div class="topo-tree"><div class="topo-site">🐙 ' + esc(t.site || '')
+                + '<div class="topo-meta">' + sws.length + ' switches · ' + aps.length + ' APs · '
+                + gws.length + ' firewalls · ' + online + '/' + total + ' online</div></div>'
+                + tier('Firewalls / Gateways', gws, 'gw', GW)
+                + tier('Switches', sws, 'sw', SW)
+                + tier('Access Points', aps, 'ap', AP)
+                + '</div>'
+                + '<div class="topo-foot"><b>Note:</b> links are shown by tier (not port-to-port): '
+                + 'the Nebula API exposes neither the topology map nor LLDP neighbour data. '
+                + 'Client counts reflect devices connected right now.</div></div>';
+        }
+
+        Swal.fire({
+            title: '<i class="bi bi-diagram-3"></i> Topology — ' + esc(t.site || ''),
+            html: html, width: 920, confirmButtonText: 'Close', confirmButtonColor: '#FF48D8',
+        });
+    }
+</script>
+
+<script>
+    // Clicking a site's Alerts panel shows which devices are offline. Defined
+    // here (the shell) so it works after the content is injected via AJAX.
+    function showNebulaAlerts(el) {
+        var site = el.dataset.site || '';
+        var devices = [];
+        try { devices = JSON.parse(el.dataset.alerts || '[]'); } catch (e) { devices = []; }
+
+        function esc(v) { var s = document.createElement('div'); s.textContent = (v == null ? '' : v); return s.innerHTML; }
+
+        var body;
+        if (!devices.length) {
+            body = '<p class="text-success mb-0">No issues.</p>';
+        } else {
+            body = '<p class="text-muted">These devices need attention — <b>offline</b> (unreachable; '
+                 + 'check power, cabling and uplink) or with <b>outdated firmware</b>.</p>'
+                 + '<table style="width:100%; border-collapse:collapse; font-size:.9rem;">'
+                 + '<thead><tr style="background:#f1f3f5;">'
+                 + '<th style="text-align:left; padding:.3rem .5rem;">Name</th>'
+                 + '<th style="text-align:left; padding:.3rem .5rem;">Type</th>'
+                 + '<th style="text-align:left; padding:.3rem .5rem;">Model</th>'
+                 + '<th style="text-align:left; padding:.3rem .5rem;">Issue</th></tr></thead><tbody>';
+            devices.forEach(function (d) {
+                var isOutdated = (d.issue || '').toLowerCase().indexOf('outdated') !== -1;
+                var issueHtml = '<span style="color:' + (isOutdated ? '#fd7e14' : '#dc3545') + ';">' + esc(d.issue || '') + '</span>'
+                              + (d.detail ? ' <span class="text-muted">(' + esc(d.detail) + ')</span>' : '');
+                body += '<tr>'
+                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + esc(d.name) + '</td>'
+                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + esc(d.type) + '</td>'
+                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + esc(d.model) + '</td>'
+                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + issueHtml + '</td>'
+                     + '</tr>';
+            });
+            body += '</tbody></table>';
+        }
+
+        Swal.fire({
+            title: '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Alerts — ' + esc(site),
+            html: body,
+            width: 600,
+            confirmButtonText: 'Close',
+            confirmButtonColor: '#FF48D8',
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        showLoadingOverlay();   // visible from the moment the page loads until data is ready
+        var started = Date.now();
+        var MIN_SPINNER_MS = 600;
+        function showResult(html) {
+            var wait = Math.max(0, MIN_SPINNER_MS - (Date.now() - started));
+            setTimeout(function () {
+                document.getElementById('net-overview-content').innerHTML = html;
+                hideLoadingOverlay();
+            }, wait);
+        }
+        fetch("{% url 'frm_net_overview' %}?partial=1", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.text(); })
+            .then(showResult)
+            .catch(function () {
+                showResult('<div class="alert alert-danger">Could not load the data.</div>');
+            });
+    });
+</script>
+{% endblock %}

@@ -302,3 +302,23 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev
 
 # Recipient for the staff inventory reports (the People department).
 STAFF_REPORT_RECIPIENT = os.environ.get('STAFF_REPORT_RECIPIENT', '')
+
+# TP-Link Omada Open API (Cloud-Based Controller). Credentials come from an
+# application created in the controller (Settings -> Platform Integration ->
+# Open API). Secrets must never be hardcoded — set them as env vars / EB
+# Environment Properties. If unset, the Omada screen shows a "not configured"
+# notice instead of failing.
+OMADA_BASE_URL = os.environ.get('OMADA_BASE_URL', '')       # e.g. https://euw1-api-omada-controller-connector.tplinkcloud.com
+OMADA_OMADAC_ID = os.environ.get('OMADA_OMADAC_ID', '')
+OMADA_CLIENT_ID = os.environ.get('OMADA_CLIENT_ID', '')
+OMADA_CLIENT_SECRET = os.environ.get('OMADA_CLIENT_SECRET', '')
+# Local controllers (private IP) use a self-signed certificate; verification is
+# off by default. Set to True if your controller has a valid/trusted cert.
+OMADA_VERIFY_SSL = os.environ.get('OMADA_VERIFY_SSL', 'False') == 'True'
+
+# Zyxel Nebula Control Center API. Token (Bearer) and org come from an API key
+# generated in NCC. Secrets via env vars / EB Environment Properties only.
+NEBULA_BASE_URL = os.environ.get('NEBULA_BASE_URL', '')      # e.g. https://api.nebula.zyxel.com
+NEBULA_API_KEY = os.environ.get('NEBULA_API_KEY', '')
+NEBULA_ORG_ID = os.environ.get('NEBULA_ORG_ID', '')
+NEBULA_VERIFY_SSL = os.environ.get('NEBULA_VERIFY_SSL', 'True') == 'True'

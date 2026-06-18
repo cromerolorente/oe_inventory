@@ -40,7 +40,8 @@ PERMITS_LIST = [
     ("delegation", "Delegation"), ("access_cards", "Access Cards"),
     ("visitors_cards", "Visitors Cards"), ("access_keys", "Access Keys"),
     ("under_repair", "Under Repair"), ("facturas", "Invoices distrib."),
-    ("printers", "Printers"), ("not_returned", "Not Returned")
+    ("printers", "Printers"), ("not_returned", "Not Returned"), ("omada", "Omada"),
+    ("net_overview", "Net Overview")
 ]
 
 def api_get_device(request):
@@ -3369,6 +3370,98 @@ def frm_not_returned_view(request):
         'total_value': total_value,
         'show_subtotals': show_subtotals,
     })
+
+
+# ==========================================================================
+# Omada screen: per-site overview pulled from the TP-Link Omada Open API.
+# ==========================================================================
+
+@login_required
+def frm_omada_view(request):
+    from . import omada
+    configured = omada.omada_configured()
+    rows, error = [], None
+    if configured:
+        try:
+            rows = omada.site_overview()
+        except Exception:
+            logger.exception("Omada API error")
+            error = ("Could not reach the Omada controller. Check the API "
+                     "credentials and that the controller is reachable.")
+    return render(request, 'oe_inventory_py_web/frmOmada.html', {
+        'rows': rows,
+        'configured': configured,
+        'error': error,
+    })
+
+
+@login_required
+def frm_net_overview_view(request):
+    import json
+    from . import nebula
+    # The page first loads a spinner shell; the data arrives via this same view
+    # with ?partial=1 (AJAX), so the user isn't left on a blank screen while the
+    # Nebula API responds (it makes several calls per site).
+    if not request.GET.get('partial'):
+        return render(request, 'oe_inventory_py_web/frmNetOverview.html', {})
+
+    configured = nebula.nebula_configured()
+    rows, error = [], None
+    if configured:
+        try:
+            rows = nebula.site_overview()
+            # Serialise each site's offline devices for the alerts pop-up and
+            # its topology for the map modal.
+            for r in rows:
+                r['alert_json'] = json.dumps(r.get('alert_list') or [])
+                r['topology_json'] = json.dumps(r.get('topology') or {})
+        except Exception:
+            logger.exception("Nebula API error")
+            error = ("Could not reach the Nebula API. Check the API key, "
+                     "organization id and base URL.")
+    return render(request, 'oe_inventory_py_web/_net_overview_content.html', {
+        'rows': rows,
+        'configured': configured,
+        'error': error,
+    })
+
+
+@login_required
+def api_footer_counts(request):
+    """Live footer counters (pending orders, pending cards, online users), so the
+    status bar refreshes periodically without reloading the page."""
+    from .context_processors import pending_counts, online_user_ids
+    total_orders, total_cards = pending_counts()
+    ids = online_user_ids()
+    ids.add(str(request.user.pk))  # the requester is online by definition
+    return JsonResponse({
+        'total_orders': total_orders,
+        'total_cards': total_cards,
+        'online_users': len(ids),
+    })
+
+
+@login_required
+def api_net_alerts(request):
+    """Total number of active network alerts (offline devices across all sites),
+    for the footer 'Net Alerts' badge. Polled periodically by the footer JS.
+
+    Only users with the net_overview permission may query it. Returns
+    ``{'alerts': N, 'ok': True}`` on success; on any connectivity/config issue
+    it returns ``ok=False`` so the footer simply hides the badge."""
+    if not getattr(request.user, 'net_overview', 0):
+        return JsonResponse({'alerts': 0, 'ok': False}, status=403)
+
+    from . import nebula
+    if not nebula.nebula_configured():
+        return JsonResponse({'alerts': 0, 'ok': False})
+    try:
+        rows = nebula.site_overview()
+        total = sum(int(r.get('alerts') or 0) for r in rows)
+        return JsonResponse({'alerts': total, 'ok': True})
+    except Exception:
+        logger.exception("Net alerts count failed")
+        return JsonResponse({'alerts': 0, 'ok': False})
 
 
 # ==========================================================================
