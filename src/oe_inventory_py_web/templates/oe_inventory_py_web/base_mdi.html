@@ -254,9 +254,11 @@
                     .catch(function () { /* keep the server-rendered value */ });
             }
             // The badge is rendered server-side from the cache, so it shows
-            // immediately on every page without blanking. We only poll every
-            // 5 minutes to keep a long-open page current.
-            setInterval(refreshNetAlerts, 5 * 60 * 1000);
+            // immediately on page load. We then poll every 20 s so that when the
+            // background computation finishes (e.g. shortly after a cold start)
+            // the badge appears on an already-open page without a manual reload.
+            // This only reads the cache; the heavy recompute stays at 5 min.
+            setInterval(refreshNetAlerts, 20 * 1000);
         })();
 
         // Footer status counters (pending cards, pending orders, online users):
@@ -277,7 +279,9 @@
                     })
                     .catch(function () { /* keep the last known values */ });
             }
-            setInterval(refreshFooterCounts, 5 * 60 * 1000);  // every 5 minutes
+            // Poll every 60 s (cache read) so cold-start counts appear without a
+            // reload; the underlying recompute is still throttled to 5 min.
+            setInterval(refreshFooterCounts, 60 * 1000);
         })();
     </script>
 </body>
