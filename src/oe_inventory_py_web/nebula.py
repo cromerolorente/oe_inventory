@@ -115,34 +115,44 @@ def _online_clients(site_id):
 
 
 def _client_counts(online_clients, devices_by_id):
-    """Aggregate online-client counts, split wifi vs wired by the device each one
-    is connected to (AP -> wifi, switch/gateway -> wired). ``online_clients`` is
-    the list from `_online_clients` (None when unavailable -> unknown counts)."""
+    """Aggregate online-client counts, by distinct device (MAC), split wifi vs
+    wired by the device each one is connected to (AP -> wifi, else wired).
+
+    Deduplicated per equipment: a device with several connections of the same
+    type counts once for that type; one with both a wireless and a wired
+    connection counts once in each (so wifi + wired may exceed total, which is
+    the number of distinct devices). ``online_clients`` is the list from
+    `_online_clients` (None when unavailable -> unknown counts)."""
     if online_clients is None:
         return {'wifi': None, 'wired': None, 'total': None}
-    wifi = wired = 0
+    wifi_macs, wired_macs, all_macs = set(), set(), set()
     for c in online_clients:
+        mac = c.get('macAddress') or c.get('mac') or c.get('connectedTo')
+        all_macs.add(mac)
         dev = devices_by_id.get(c.get('connectedTo'))
         if (dev or {}).get('type') == 'AP':
-            wifi += 1
+            wifi_macs.add(mac)
         else:
-            wired += 1
-    return {'wifi': wifi, 'wired': wired, 'total': wifi + wired}
+            wired_macs.add(mac)
+    return {'wifi': len(wifi_macs), 'wired': len(wired_macs), 'total': len(all_macs)}
 
 
 def _build_topology(site_name, devices, online, online_clients):
     """A tiered map of the site: gateways/firewalls -> switches -> access points.
     Each node carries name, model, online state and the number of clients
     connected to it right now."""
-    per_dev = collections.Counter(
-        c.get('connectedTo') for c in (online_clients or []))
+    # Distinct devices (MACs) connected to each network device.
+    per_dev = collections.defaultdict(set)
+    for c in (online_clients or []):
+        mac = c.get('macAddress') or c.get('mac') or id(c)
+        per_dev[c.get('connectedTo')].add(mac)
 
     def entry(d):
         return {
             'name': d.get('name') or d.get('mac') or '?',
             'model': d.get('model') or '',
             'online': bool(online.get(d.get('devId'))),
-            'clients': per_dev.get(d.get('devId'), 0),
+            'clients': len(per_dev.get(d.get('devId'), ())),
         }
 
     gateways = sorted([entry(d) for d in devices if d and d.get('type') in FIREWALL_TYPES],

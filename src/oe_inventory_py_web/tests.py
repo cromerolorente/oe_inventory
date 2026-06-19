@@ -1824,13 +1824,26 @@ class NebulaClientCountsTests(TestCase):
     def test_counts_split_by_connected_device(self):
         from oe_inventory_py_web import nebula
         clients = [
-            {'connectedTo': 'ap1'}, {'connectedTo': 'ap1'},   # wifi x2
-            {'connectedTo': 'sw1'},                            # wired
-            {'connectedTo': 'gw1'},                            # wired (gateway)
-            {'connectedTo': 'unknown'},                        # wired (fallback)
+            {'macAddress': 'AA', 'connectedTo': 'ap1'},
+            {'macAddress': 'BB', 'connectedTo': 'ap1'},   # wifi
+            {'macAddress': 'CC', 'connectedTo': 'sw1'},   # wired
+            {'macAddress': 'DD', 'connectedTo': 'gw1'},   # wired (gateway)
+            {'macAddress': 'EE', 'connectedTo': 'unknown'},  # wired (fallback)
         ]
         self.assertEqual(nebula._client_counts(clients, self.BY_ID),
                          {'wifi': 2, 'wired': 3, 'total': 5})
+
+    def test_dedupes_same_device_across_connections(self):
+        from oe_inventory_py_web import nebula
+        # Same MAC seen on two switches + once on an AP -> 1 wired, 1 wifi, 1 device.
+        clients = [
+            {'macAddress': 'AA', 'connectedTo': 'sw1'},
+            {'macAddress': 'AA', 'connectedTo': 'sw1'},
+            {'macAddress': 'AA', 'connectedTo': 'ap1'},
+            {'macAddress': 'BB', 'connectedTo': 'sw1'},
+        ]
+        self.assertEqual(nebula._client_counts(clients, self.BY_ID),
+                         {'wifi': 1, 'wired': 2, 'total': 2})
 
     def test_counts_none_when_clients_unavailable(self):
         from oe_inventory_py_web import nebula
