@@ -100,6 +100,9 @@ function limpiarFormularioDispositivo() {
     if (document.getElementById('input-bill')) document.getElementById('input-bill').value = '';
     if (document.getElementById('input-value')) document.getElementById('input-value').value = '0';
 
+    // Observations.
+    if (document.getElementById('input-obs')) document.getElementById('input-obs').value = '';
+
     // History / notes.
     const textareaNotes = document.querySelector('textarea[name="notes"]');
     if (textareaNotes) textareaNotes.value = '';
@@ -150,6 +153,8 @@ function buscarDispositivoAjax() {
                 if (document.getElementById('input-date')) document.getElementById('input-date').value = data.date;
                 if (document.getElementById('input-bill')) document.getElementById('input-bill').value = data.bill;
                 if (document.getElementById('input-value')) document.getElementById('input-value').value = data.value;
+
+                if (document.getElementById('input-obs')) document.getElementById('input-obs').value = data.obs || '';
 
                 const textareaNotes = document.querySelector('textarea[name="notes"]');
                 if (textareaNotes) textareaNotes.value = data.notes;

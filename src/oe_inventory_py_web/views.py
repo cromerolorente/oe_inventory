@@ -113,6 +113,7 @@ def api_get_device(request):
             'date': date_val,
             'bill': getattr(device, 'bill_number', '') or '',
             'value': value_val,
+            'obs': getattr(device, 'obs', '') or '',
             'notes': getattr(device, 'notes', '') or '',
             'under_repair': OeesUnderRepair.objects.filter(
                 serial_number=serial, date_in__isnull=True).exists(),
@@ -276,7 +277,14 @@ def frm_devices_view(request):
                     device.origin = request.POST.get('origin', '')
                     device.bill_number = request.POST.get('bill_number', '')
                     device.obs = request.POST.get('obs', '')
-                    device.notes = request.POST.get('notes', '')
+
+                    # Log this save to the device history (newest entry on top),
+                    # the same way the technical-support action does.
+                    now_str = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                    posted_notes = request.POST.get('notes', '')
+                    action_txt = 'Created' if created else 'Updated'
+                    device.notes = (f"{now_str} - {action_txt} by {request.user.username}\n"
+                                    f"{posted_notes}").strip()
 
                     val_str = request.POST.get('value', '0')
                     try:

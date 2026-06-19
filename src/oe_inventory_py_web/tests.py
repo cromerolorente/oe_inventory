@@ -1451,6 +1451,40 @@ class DevicesGridServerSideTests(TestCase):
         self.assertContains(response, 'Please select a company')
         self.assertFalse(OeesDevices.objects.filter(serial_number='NO-COMPANY-1').exists())
 
+    def test_api_get_device_returns_obs(self):
+        # The lookup must return obs so the form can populate the Obs field;
+        # otherwise saving would post an empty obs and wipe it.
+        from oe_inventory_py_web.models import OeesDevices
+        OeesDevices.objects.filter(serial_number='SN-1').update(obs='check battery')
+        self.client.force_login(self.user)
+        data = self.client.get(reverse('api_get_device'), {'serial_number': 'SN-1'}).json()
+        self.assertEqual(data['obs'], 'check battery')
+
+    def test_save_persists_obs_and_logs_history(self):
+        from oe_inventory_py_web.models import OeesDevices
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices'), {
+            'action': 'save', 'serial_number': 'SN-1', 'id_company': str(self.company.id_company),
+            'type': 'LAPTOP', 'brand': 'Dell', 'model': 'M1', 'value': '100',
+            'obs': 'needs cleaning', 'notes': '',
+        })
+        d = OeesDevices.objects.get(serial_number='SN-1')
+        self.assertEqual(d.obs, 'needs cleaning')
+        self.assertIn('Updated by', d.notes)  # a history entry was logged
+
+    def test_save_keeps_existing_history_and_prepends(self):
+        from oe_inventory_py_web.models import OeesDevices
+        OeesDevices.objects.filter(serial_number='SN-2').update(notes='OLD ENTRY')
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices'), {
+            'action': 'save', 'serial_number': 'SN-2', 'id_company': str(self.company.id_company),
+            'type': 'LAPTOP', 'brand': 'Dell', 'model': 'M2', 'value': '100',
+            'obs': '', 'notes': 'OLD ENTRY',
+        })
+        d = OeesDevices.objects.get(serial_number='SN-2')
+        self.assertIn('Updated by', d.notes)
+        self.assertIn('OLD ENTRY', d.notes)  # previous history preserved
+
     def test_api_get_device_reports_under_repair_flag(self):
         # The AJAX lookup must say whether the device is in maintenance, so the
         # banner can be toggled when switching devices without a page reload.
