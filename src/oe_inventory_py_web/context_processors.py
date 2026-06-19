@@ -110,7 +110,11 @@ def mdi_status_counters(request):
     if not request.user.is_authenticated:
         return {}
 
-    total_orders, total_cards = pending_counts()
+    # Pending orders/cards and network alerts come from a background-refreshed
+    # cache, so navigating between forms never waits on these (the network
+    # alerts figure in particular calls the slow Nebula API). See status_cache.
+    from . import status_cache
+    status = status_cache.get_status()
 
     # Count online users from the persisted sessions, but always include the
     # user making this request: they are online by definition, and their own
@@ -121,7 +125,8 @@ def mdi_status_counters(request):
 
     # Whatever is returned here is available in ALL HTML templates.
     return {
-        'total_orders': total_orders,
-        'total_cards': total_cards,
+        'total_orders': status.get('total_orders') or 0,
+        'total_cards': status.get('total_cards') or 0,
+        'net_alerts': status.get('net_alerts'),
         'online_users': len(ids),
     }

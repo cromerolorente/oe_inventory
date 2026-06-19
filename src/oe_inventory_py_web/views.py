@@ -3429,39 +3429,36 @@ def frm_net_overview_view(request):
 @login_required
 def api_footer_counts(request):
     """Live footer counters (pending orders, pending cards, online users), so the
-    status bar refreshes periodically without reloading the page."""
-    from .context_processors import pending_counts, online_user_ids
-    total_orders, total_cards = pending_counts()
+    status bar refreshes periodically without reloading the page. Pending counts
+    come from the background-refreshed cache; online users are counted live."""
+    from . import status_cache
+    from .context_processors import online_user_ids
+    status = status_cache.get_status()
     ids = online_user_ids()
     ids.add(str(request.user.pk))  # the requester is online by definition
     return JsonResponse({
-        'total_orders': total_orders,
-        'total_cards': total_cards,
+        'total_orders': status.get('total_orders') or 0,
+        'total_cards': status.get('total_cards') or 0,
         'online_users': len(ids),
     })
 
 
 @login_required
 def api_net_alerts(request):
-    """Total number of active network alerts (offline devices across all sites),
-    for the footer 'Net Alerts' badge. Polled periodically by the footer JS.
+    """Total number of active network alerts (offline + outdated devices across
+    all sites), for the footer 'Net Alerts' badge. Polled periodically by the
+    footer JS and served instantly from the background-refreshed cache.
 
     Only users with the net_overview permission may query it. Returns
-    ``{'alerts': N, 'ok': True}`` on success; on any connectivity/config issue
-    it returns ``ok=False`` so the footer simply hides the badge."""
+    ``{'alerts': N, 'ok': True}`` when a figure is available; ``ok=False`` while
+    it is still unknown (cold start / Nebula unreachable) so the badge hides."""
     if not getattr(request.user, 'net_overview', 0):
         return JsonResponse({'alerts': 0, 'ok': False}, status=403)
 
-    from . import nebula
-    if not nebula.nebula_configured():
-        return JsonResponse({'alerts': 0, 'ok': False})
-    try:
-        rows = nebula.site_overview()
-        total = sum(int(r.get('alerts') or 0) for r in rows)
-        return JsonResponse({'alerts': total, 'ok': True})
-    except Exception:
-        logger.exception("Net alerts count failed")
-        return JsonResponse({'alerts': 0, 'ok': False})
+    # Read the background-refreshed cache (never call Nebula in the request path).
+    from . import status_cache
+    n = status_cache.get_status().get('net_alerts')
+    return JsonResponse({'alerts': n or 0, 'ok': n is not None})
 
 
 # ==========================================================================

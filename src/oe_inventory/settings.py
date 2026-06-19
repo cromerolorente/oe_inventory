@@ -322,3 +322,18 @@ NEBULA_BASE_URL = os.environ.get('NEBULA_BASE_URL', '')      # e.g. https://api.
 NEBULA_API_KEY = os.environ.get('NEBULA_API_KEY', '')
 NEBULA_ORG_ID = os.environ.get('NEBULA_ORG_ID', '')
 NEBULA_VERIFY_SSL = os.environ.get('NEBULA_VERIFY_SSL', 'True') == 'True'
+
+# Footer status counters (pending orders/cards + network alerts) are computed in
+# a background thread and cached, so page navigation never waits on them. Set to
+# False (e.g. in tests) to disable the background thread and compute on demand.
+MDI_STATUS_REFRESH_IN_BACKGROUND = True
+MDI_STATUS_REFRESH_SECONDS = 300  # recompute cadence (5 minutes)
+
+# Under the test runner, compute counters synchronously (no background thread)
+# so tests are deterministic and never leave threads running. Also blank the
+# Omada/Nebula credentials so tests never reach the live APIs via the developer's
+# .env (tests that need them set their own values with override_settings).
+if 'test' in sys.argv:
+    MDI_STATUS_REFRESH_IN_BACKGROUND = False
+    OMADA_BASE_URL = OMADA_OMADAC_ID = OMADA_CLIENT_ID = OMADA_CLIENT_SECRET = ''
+    NEBULA_BASE_URL = NEBULA_API_KEY = NEBULA_ORG_ID = ''

@@ -1981,6 +1981,8 @@ class NetAlertsBadgeTests(TestCase):
     """Footer 'Net Alerts' badge endpoint (api_net_alerts)."""
 
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # avoid the last-known net_alerts carrying across tests
         User = get_user_model()
         self.user = User.objects.create_user(
             username='na_user', password='pass12345', net_overview=1, reader=0)
@@ -2041,6 +2043,60 @@ class NetAlertsBadgeTests(TestCase):
         self.client.force_login(other)
         resp = self.client.get(reverse('mdi_home'))
         self.assertNotContains(resp, 'id="net-alerts-panel"')
+
+
+class StatusCacheTests(TestCase):
+    """Background-refreshed footer status cache (status_cache)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_compute_and_store_caches_values(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        with override_settings(NEBULA_BASE_URL='x', NEBULA_API_KEY='t'):
+            with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(3, 5)), \
+                 patch('oe_inventory_py_web.nebula.site_overview', return_value=[{'alerts': 2}, {'alerts': 4}]):
+                data = status_cache.compute_and_store()
+        self.assertEqual(data, {'total_orders': 3, 'total_cards': 5, 'net_alerts': 6})
+
+    def test_net_alerts_none_when_not_configured(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        with override_settings(NEBULA_BASE_URL='', NEBULA_API_KEY=''):
+            with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(0, 0)):
+                data = status_cache.compute_and_store()
+        self.assertIsNone(data['net_alerts'])
+
+    def test_get_status_serves_cache_without_recompute_when_fresh(self):
+        import time
+        from django.test import override_settings
+        from django.core.cache import cache
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        cache.set(status_cache.DATA_KEY, {'total_orders': 1, 'total_cards': 2, 'net_alerts': 9}, None)
+        cache.set(status_cache.TS_KEY, time.time(), None)
+        with override_settings(MDI_STATUS_REFRESH_IN_BACKGROUND=True):
+            with patch('oe_inventory_py_web.status_cache._trigger_refresh') as trig:
+                data = status_cache.get_status()
+        self.assertEqual(data['net_alerts'], 9)
+        trig.assert_not_called()
+
+    def test_get_status_triggers_refresh_when_stale(self):
+        import time
+        from django.test import override_settings
+        from django.core.cache import cache
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        cache.set(status_cache.DATA_KEY, {'total_orders': 0, 'total_cards': 0, 'net_alerts': 0}, None)
+        cache.set(status_cache.TS_KEY, time.time() - 9999, None)  # stale
+        with override_settings(MDI_STATUS_REFRESH_IN_BACKGROUND=True, MDI_STATUS_REFRESH_SECONDS=300):
+            with patch('oe_inventory_py_web.status_cache._trigger_refresh') as trig:
+                status_cache.get_status()
+        trig.assert_called_once()
 
 
 class FooterCountsApiTests(TestCase):

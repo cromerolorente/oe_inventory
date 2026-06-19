@@ -141,10 +141,11 @@
         </div>
         <div class="d-flex">
             {% if request.user.net_overview %}
-            <div class="px-3" id="net-alerts-panel" style="display:none; cursor:pointer;" title="Open Net Overview">
+            <div class="px-3" id="net-alerts-panel" title="Open Net Overview"
+                style="cursor:pointer;{% if not net_alerts %}display:none;{% endif %}">
                 <a href="{% url 'frm_net_overview' %}" onclick="showLoadingOverlay()"
                     class="badge bg-danger text-white text-decoration-none">
-                    Net Alerts: <strong id="net-alerts-count">0</strong>
+                    Net Alerts: <strong id="net-alerts-count">{{ net_alerts|default:0 }}</strong>
                 </a>
             </div>
             {% endif %}
@@ -240,17 +241,22 @@
             if (!panel) return;  // user without net_overview permission
             var countEl = document.getElementById('net-alerts-count');
             function refreshNetAlerts() {
+                // Reads the background-refreshed cache (instant); never triggers
+                // a Nebula call in this request, so it won't slow the user down.
                 fetch("{% url 'api_net_alerts' %}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
-                        var n = (data && data.ok) ? (data.alerts || 0) : 0;
+                        if (!data || !data.ok) return;  // unknown -> keep current value
+                        var n = data.alerts || 0;
                         countEl.textContent = n;
                         panel.style.display = n > 0 ? '' : 'none';
                     })
-                    .catch(function () { panel.style.display = 'none'; });
+                    .catch(function () { /* keep the server-rendered value */ });
             }
-            refreshNetAlerts();
-            setInterval(refreshNetAlerts, 5 * 60 * 1000);  // every 5 minutes
+            // The badge is rendered server-side from the cache, so it shows
+            // immediately on every page without blanking. We only poll every
+            // 5 minutes to keep a long-open page current.
+            setInterval(refreshNetAlerts, 5 * 60 * 1000);
         })();
 
         // Footer status counters (pending cards, pending orders, online users):
