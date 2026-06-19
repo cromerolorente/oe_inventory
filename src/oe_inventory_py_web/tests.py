@@ -1915,6 +1915,8 @@ class NetOverviewScreenTests(TestCase):
     """Net Overview dashboard (Nebula-backed, AJAX + spinner; client mocked)."""
 
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # the screen now reads cached site_overview rows
         User = get_user_model()
         self.user = User.objects.create_user(
             username='no_user', password='pass12345', net_overview=1, reader=0)
@@ -1975,6 +1977,17 @@ class NetOverviewScreenTests(TestCase):
                 resp = self.client.get(reverse('frm_net_overview'), {'partial': '1'})
                 self.assertIsNotNone(resp.context['error'])
                 self.assertContains(resp, 'Could not reach the Nebula API')
+
+    def test_partial_returns_202_while_preparing(self):
+        # Cold start: cache not ready yet -> 202 so the shell keeps the spinner
+        # and retries, instead of computing synchronously (which 502'd on EB).
+        from django.test import override_settings
+        from unittest.mock import patch
+        with override_settings(NEBULA_BASE_URL='https://x', NEBULA_API_KEY='t'):
+            with patch('oe_inventory_py_web.status_cache.get_net_overview', return_value=(None, None)):
+                self.client.force_login(self.user)
+                resp = self.client.get(reverse('frm_net_overview'), {'partial': '1'})
+                self.assertEqual(resp.status_code, 202)
 
 
 class NetAlertsBadgeTests(TestCase):
@@ -2070,6 +2083,31 @@ class StatusCacheTests(TestCase):
             with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(0, 0)):
                 data = status_cache.compute_and_store()
         self.assertIsNone(data['net_alerts'])
+
+    def test_site_overview_rows_are_cached(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        rows = [{'site': 'X', 'alerts': 2}]
+        with override_settings(NEBULA_BASE_URL='x', NEBULA_API_KEY='t'):
+            with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(0, 0)), \
+                 patch('oe_inventory_py_web.nebula.site_overview', return_value=rows):
+                status_cache.compute_and_store()
+                with override_settings(MDI_STATUS_REFRESH_IN_BACKGROUND=True):
+                    got, err = status_cache.get_net_overview(trigger=False)
+        self.assertEqual(got, rows)
+        self.assertIsNone(err)
+
+    def test_get_net_overview_keeps_rows_and_reports_error_on_failure(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        with override_settings(NEBULA_BASE_URL='x', NEBULA_API_KEY='t'):
+            with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(0, 0)), \
+                 patch('oe_inventory_py_web.nebula.site_overview', side_effect=Exception('boom')):
+                rows, err = status_cache.get_net_overview()
+        self.assertIsNone(rows)
+        self.assertIn('Nebula', err)
 
     def test_get_status_serves_cache_without_recompute_when_fresh(self):
         import time

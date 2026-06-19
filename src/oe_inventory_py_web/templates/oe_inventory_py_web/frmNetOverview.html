@@ -163,12 +163,23 @@
                 hideLoadingOverlay();
             }, wait);
         }
-        fetch("{% url 'frm_net_overview' %}?partial=1", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.text(); })
-            .then(showResult)
-            .catch(function () {
-                showResult('<div class="alert alert-danger">Could not load the data.</div>');
-            });
+        // The data is served from a background-refreshed cache. On a cold start
+        // the cache may not be ready yet: the server replies 202 and we keep the
+        // spinner and retry a few seconds later, until the data is available.
+        function loadPartial() {
+            fetch("{% url 'frm_net_overview' %}?partial=1", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) {
+                    if (r.status === 202) { setTimeout(loadPartial, 4000); return null; }
+                    return r.text();
+                })
+                .then(function (html) {
+                    if (html !== null) showResult(html);  // null => still preparing, keep spinner
+                })
+                .catch(function () {
+                    showResult('<div class="alert alert-danger">Could not load the data.</div>');
+                });
+        }
+        loadPartial();
     });
 </script>
 {% endblock %}

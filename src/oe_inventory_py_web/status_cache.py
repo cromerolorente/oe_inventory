@@ -21,8 +21,13 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 DATA_KEY = 'mdi_status_data'
+ROWS_KEY = 'mdi_net_overview_rows'    # full site_overview() result (list) or None
+ERR_KEY = 'mdi_net_overview_error'    # error message when the last fetch failed
 TS_KEY = 'mdi_status_ts'
 LOCK_KEY = 'mdi_status_lock'
+
+NEBULA_ERROR = ("Could not reach the Nebula API. Check the API key, "
+                "organization id and base URL.")
 
 # Returned while the first background compute is still running (cold start).
 PLACEHOLDER = {'total_orders': 0, 'total_cards': 0, 'net_alerts': None}
@@ -38,11 +43,13 @@ def _store(data):
 
 
 def compute_and_store():
-    """Recompute the counters and store them in the cache. Returns the data.
+    """Recompute the counters (and the full Net Overview rows) and cache them.
 
     The cheap DB counts (pending orders/cards) are published first so the footer
-    isn't stuck at zero during the slow Nebula call on a cold start; the network
-    alerts figure is filled in once Nebula responds."""
+    isn't stuck at zero during the slow Nebula call on a cold start. The Nebula
+    site overview is fetched once and reused both for the alerts figure and for
+    the Net Overview screen (served from cache so its AJAX request never waits
+    on the slow API and never times out)."""
     from .context_processors import pending_counts
     from . import nebula
 
@@ -50,20 +57,25 @@ def compute_and_store():
     total_orders, total_cards = pending_counts()
 
     # Publish the cheap counts straight away (keep any known alerts figure).
-    data = {'total_orders': total_orders, 'total_cards': total_cards,
-            'net_alerts': prev.get('net_alerts')}
-    _store(data)
+    _store({'total_orders': total_orders, 'total_cards': total_cards,
+            'net_alerts': prev.get('net_alerts')})
 
+    net_alerts = None
     if nebula.nebula_configured():
         net_alerts = prev.get('net_alerts')  # keep last known if Nebula fails
         try:
-            net_alerts = sum(int(r.get('alerts') or 0) for r in nebula.site_overview())
+            rows = nebula.site_overview()
+            net_alerts = sum(int(r.get('alerts') or 0) for r in rows)
+            cache.set(ROWS_KEY, rows, None)
+            cache.set(ERR_KEY, None, None)
         except Exception:
-            logger.exception("Net alerts background compute failed")
-        data = {'total_orders': total_orders, 'total_cards': total_cards, 'net_alerts': net_alerts}
+            logger.exception("Nebula site overview background compute failed")
+            cache.set(ERR_KEY, NEBULA_ERROR, None)
     else:
-        data = {'total_orders': total_orders, 'total_cards': total_cards, 'net_alerts': None}
+        cache.set(ROWS_KEY, None, None)
+        cache.set(ERR_KEY, None, None)
 
+    data = {'total_orders': total_orders, 'total_cards': total_cards, 'net_alerts': net_alerts}
     _store(data)
     return data
 
@@ -105,3 +117,24 @@ def get_status(trigger=True):
     if trigger and (time.time() - ts) > _refresh_seconds():
         _trigger_refresh()
     return data
+
+
+def get_net_overview(trigger=True):
+    """Return ``(rows, error)`` for the Net Overview screen from the cache.
+
+    * ``rows`` is the cached ``site_overview()`` list when available, else None.
+    * ``error`` is a message when the last fetch failed and no rows are cached.
+    * ``(None, None)`` means a compute is in flight / not done yet (cold start):
+      the caller should tell the client to retry shortly.
+
+    A background refresh is kicked off when the data is missing or stale; the
+    request never waits for it. In synchronous mode (tests / management) it
+    computes inline so callers always see current data."""
+    if not getattr(settings, 'MDI_STATUS_REFRESH_IN_BACKGROUND', True):
+        compute_and_store()
+        return cache.get(ROWS_KEY), cache.get(ERR_KEY)
+
+    ts = cache.get(TS_KEY) or 0
+    if trigger and (ts == 0 or (time.time() - ts) > _refresh_seconds()):
+        _trigger_refresh()
+    return cache.get(ROWS_KEY), cache.get(ERR_KEY)

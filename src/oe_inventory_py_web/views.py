@@ -3398,30 +3398,35 @@ def frm_omada_view(request):
 @login_required
 def frm_net_overview_view(request):
     import json
-    from . import nebula
+    from . import nebula, status_cache
     # The page first loads a spinner shell; the data arrives via this same view
-    # with ?partial=1 (AJAX), so the user isn't left on a blank screen while the
-    # Nebula API responds (it makes several calls per site).
+    # with ?partial=1 (AJAX). The data is served from the background-refreshed
+    # cache (status_cache) so this request never waits on the slow Nebula API —
+    # that synchronous call behind gunicorn's 30 s timeout caused 502s on the
+    # server. While the first compute is still running we return HTTP 202 and
+    # the shell retries.
     if not request.GET.get('partial'):
         return render(request, 'oe_inventory_py_web/frmNetOverview.html', {})
 
     configured = nebula.nebula_configured()
-    rows, error = [], None
-    if configured:
-        try:
-            rows = nebula.site_overview()
-            # Serialise each site's offline devices for the alerts pop-up and
-            # its topology for the map modal.
-            for r in rows:
-                r['alert_json'] = json.dumps(r.get('alert_list') or [])
-                r['topology_json'] = json.dumps(r.get('topology') or {})
-        except Exception:
-            logger.exception("Nebula API error")
-            error = ("Could not reach the Nebula API. Check the API key, "
-                     "organization id and base URL.")
+    if not configured:
+        return render(request, 'oe_inventory_py_web/_net_overview_content.html',
+                      {'rows': [], 'configured': False, 'error': None})
+
+    rows, error = status_cache.get_net_overview()
+    if rows is None and not error:
+        # Cold start: the background compute hasn't produced data yet.
+        return HttpResponse(status=202)  # the shell keeps the spinner and retries
+
+    rows = rows or []
+    # Serialise each site's offline devices for the alerts pop-up and its
+    # topology for the map modal.
+    for r in rows:
+        r['alert_json'] = json.dumps(r.get('alert_list') or [])
+        r['topology_json'] = json.dumps(r.get('topology') or {})
     return render(request, 'oe_inventory_py_web/_net_overview_content.html', {
         'rows': rows,
-        'configured': configured,
+        'configured': True,
         'error': error,
     })
 
