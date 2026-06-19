@@ -1763,6 +1763,20 @@ class NebulaGatewayWanTests(TestCase):
         self.assertEqual(w['enabled'], 2)
         self.assertEqual(w['operational'], 1)    # only ge1 has a live link
 
+    def test_gateway_system_returns_cpu_and_mem(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+        resp = {'cpuUsage': 22, 'memUsage': 69, 'sessions': 260}
+        with patch('oe_inventory_py_web.nebula._request', return_value=resp):
+            m = nebula._gateway_system('site1', 'dev1')
+        self.assertEqual(m, {'cpu': 22, 'mem': 69})
+
+    def test_gateway_system_empty_when_unavailable(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import nebula
+        with patch('oe_inventory_py_web.nebula._request', side_effect=nebula.NebulaError('500')):
+            self.assertEqual(nebula._gateway_system('site1', 'dev1'), {})
+
 
 class NebulaFirmwareTests(TestCase):
     """Outdated-firmware detection (per-type counters + alerts)."""
@@ -1864,6 +1878,17 @@ class NebulaClientCountsTests(TestCase):
         self.assertEqual(len(topo['gateways']), 1)
         self.assertEqual(topo['switches'][0]['clients'], 2)
         self.assertFalse(topo['aps'][0]['online'])
+        # No metrics for switches/APs (API doesn't expose them).
+        self.assertEqual(topo['switches'][0]['metrics'], [])
+
+    def test_build_topology_attaches_gateway_metrics(self):
+        from oe_inventory_py_web import nebula
+        devices = [{'devId': 'gw1', 'type': 'GWH', 'name': 'FW', 'model': 'USG'}]
+        online = {'gw1': True}
+        gw_metrics = {'gw1': {'cpu': 22.0, 'mem': 69.4}}
+        topo = nebula._build_topology('S', devices, online, [], gw_metrics)
+        self.assertEqual(topo['gateways'][0]['metrics'],
+                         [{'label': 'CPU', 'value': 22}, {'label': 'Memory', 'value': 69}])
 
 
 class OmadaScreenTests(TestCase):

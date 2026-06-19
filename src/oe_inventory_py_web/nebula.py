@@ -137,25 +137,40 @@ def _client_counts(online_clients, devices_by_id):
     return {'wifi': len(wifi_macs), 'wired': len(wired_macs), 'total': len(all_macs)}
 
 
-def _build_topology(site_name, devices, online, online_clients):
+def _build_topology(site_name, devices, online, online_clients, gw_metrics=None):
     """A tiered map of the site: gateways/firewalls -> switches -> access points.
-    Each node carries name, model, online state and the number of clients
-    connected to it right now."""
+    Each node carries name, model, online state, the number of clients connected
+    to it right now and (for firewalls) CPU/memory usage metrics.
+
+    Note: the Nebula OpenAPI only exposes CPU/memory for gateways/firewalls
+    (system-status); it has no equivalent for switches or AP channel utilisation,
+    so those nodes carry no metrics."""
+    gw_metrics = gw_metrics or {}
     # Distinct devices (MACs) connected to each network device.
     per_dev = collections.defaultdict(set)
     for c in (online_clients or []):
         mac = c.get('macAddress') or c.get('mac') or id(c)
         per_dev[c.get('connectedTo')].add(mac)
 
-    def entry(d):
+    def entry(d, metrics=None):
         return {
             'name': d.get('name') or d.get('mac') or '?',
             'model': d.get('model') or '',
             'online': bool(online.get(d.get('devId'))),
             'clients': len(per_dev.get(d.get('devId'), ())),
+            'metrics': metrics or [],
         }
 
-    gateways = sorted([entry(d) for d in devices if d and d.get('type') in FIREWALL_TYPES],
+    def gw_entry(d):
+        m = gw_metrics.get(d.get('devId')) or {}
+        metrics = []
+        if m.get('cpu') is not None:
+            metrics.append({'label': 'CPU', 'value': round(m['cpu'])})
+        if m.get('mem') is not None:
+            metrics.append({'label': 'Memory', 'value': round(m['mem'])})
+        return entry(d, metrics)
+
+    gateways = sorted([gw_entry(d) for d in devices if d and d.get('type') in FIREWALL_TYPES],
                       key=lambda x: x['name'])
     switches = sorted([entry(d) for d in devices if d and d.get('type') == 'SW'],
                       key=lambda x: x['name'])
@@ -237,6 +252,21 @@ def _gateway_wan(site_id, dev_id):
     return {'enabled': enabled, 'operational': operational}
 
 
+def _gateway_system(site_id, dev_id):
+    """CPU and memory usage (%) for a gateway/firewall (system-status), or an
+    empty dict if unavailable."""
+    try:
+        data = _request(f'/v1/nebula/{_q(site_id)}/gw/{_q(dev_id)}/system-status') or {}
+        return {'cpu': data.get('cpuUsage'), 'mem': data.get('memUsage')}
+    except Exception:
+        logger.info("Nebula gateway system-status unavailable for gw %s", dev_id)
+        return {}
+
+
+# CPU/memory usage strictly above this (%) is reported as an alert.
+METRIC_ALERT_THRESHOLD = 80
+
+
 def site_overview():
     """One entry per site with switch/AP/client/alert summaries. Raises
     NebulaError only on auth/connectivity problems; orgs that deny access
@@ -291,25 +321,44 @@ def site_overview():
                     'detail': f'{cur} → {latest}',
                 })
 
-            # WAN summary across the site's gateway(s)/firewall(s).
+            # WAN summary + CPU/memory metrics across the site's gateway(s).
             gw_devices = [d for d in devices
                           if d and (d.get('type') in FIREWALL_TYPES) and d.get('devId')]
             wan_enabled, wan_operational, wan_op_known = 0, 0, False
+            gw_metrics = {}
             for gw in gw_devices:
                 w = _gateway_wan(site_id, gw['devId'])
                 wan_enabled += w['enabled']
                 if w['operational'] is not None:
                     wan_operational += w['operational']
                     wan_op_known = True
+                gw_metrics[gw['devId']] = _gateway_system(site_id, gw['devId'])
             wan = {'enabled': wan_enabled,
                    'operational': (wan_operational if wan_op_known else None)}
 
+            # A device metric above the threshold (e.g. CPU/memory > 80%) is an alert.
+            metric_alerts = []
+            for gw in gw_devices:
+                d = by_id.get(gw['devId'], {})
+                m = gw_metrics.get(gw['devId']) or {}
+                for label, val in (('CPU', m.get('cpu')), ('memory', m.get('mem'))):
+                    if val is not None and val > METRIC_ALERT_THRESHOLD:
+                        metric_alerts.append({
+                            'name': d.get('name') or d.get('mac') or gw['devId'],
+                            'type': d.get('type') or '',
+                            'model': d.get('model') or '',
+                            'mac': d.get('mac') or '',
+                            'issue': f'High {label} usage',
+                            'detail': f'{round(val)}%',
+                        })
+
             online_clients = _online_clients(site_id)
             clients = _client_counts(online_clients, by_id)
-            topology = _build_topology(s.get('name') or site_id, devices, online, online_clients)
+            topology = _build_topology(s.get('name') or site_id, devices, online,
+                                       online_clients, gw_metrics)
 
-            # All alerts: offline devices + outdated-firmware devices.
-            alert_list = offline_devices + outdated_devices
+            # All alerts: offline + outdated-firmware + over-threshold metrics.
+            alert_list = offline_devices + outdated_devices + metric_alerts
 
             sites.append({
                 'site': s.get('name') or site_id,
