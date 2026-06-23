@@ -50,6 +50,7 @@ urlpatterns = [
     path('not-returned/', views.frm_not_returned_view, name='frm_not_returned'),
     path('omada/', views.frm_omada_view, name='frm_omada'),
     path('net-overview/', views.frm_net_overview_view, name='frm_net_overview'),
+    path('remote-machines/', views.frm_remote_machines_view, name='frm_remote_machines'),
     path('api/net-alerts/', views.api_net_alerts, name='api_net_alerts'),
     path('api/footer-counts/', views.api_footer_counts, name='api_footer_counts'),
 

@@ -1925,6 +1925,123 @@ class NebulaClientCountsTests(TestCase):
                          [{'label': 'CPU', 'value': 22}, {'label': 'Memory', 'value': 69}])
 
 
+class AnyDeskScreenTests(TestCase):
+    """AnyDesk screen: cards with description + online/offline dot (gated by
+    net_overview). The check itself runs in the background (status_cache)."""
+
+    def setUp(self):
+        from django.db import connection
+        from django.core.cache import cache
+        cache.clear()
+        with connection.cursor() as c:
+            c.execute("CREATE TABLE IF NOT EXISTS oees_anydesk "
+                      "(id_anydesk INTEGER PRIMARY KEY, code VARCHAR(50), "
+                      "description VARCHAR(100), last_connection DATETIME NULL)")
+            c.execute("DELETE FROM oees_anydesk")
+            c.execute("INSERT INTO oees_anydesk VALUES (1, 'AD-111', 'Reception PC', '2026-06-22 10:00:00')")
+            c.execute("INSERT INTO oees_anydesk VALUES (2, 'AD-222', 'Warehouse PC', NULL)")
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='ad_user', password='pass12345', net_overview=1, reader=0)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('frm_remote_machines')).status_code, 302)
+
+    def test_forbidden_without_permission(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username='ad_noperm', password='pass12345', net_overview=0, reader=1)
+        self.client.force_login(other)
+        self.assertRedirects(self.client.get(reverse('frm_remote_machines')), reverse('mdi_home'))
+
+    def test_lists_machines_as_cards(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_remote_machines'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context['available'])
+        self.assertEqual(len(resp.context['machines']), 2)
+        self.assertContains(resp, 'Reception PC')
+        self.assertContains(resp, 'Warehouse PC')
+        self.assertContains(resp, 'AD-111')
+
+    def test_status_falls_back_to_last_connection_without_check(self):
+        # No background status cached -> dot from last_connection presence.
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_remote_machines'))
+        by_code = {m['code']: m['online'] for m in resp.context['machines']}
+        self.assertTrue(by_code['AD-111'])    # has last_connection -> green
+        self.assertFalse(by_code['AD-222'])   # never connected -> red
+
+    def test_uses_background_status_when_available(self):
+        from django.core.cache import cache
+        from oe_inventory_py_web import status_cache
+        # A real check result overrides the last_connection fallback.
+        cache.set(status_cache.ANYDESK_STATUS_KEY, {'AD-111': False, 'AD-222': True}, None)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_remote_machines'))
+        by_code = {m['code']: m['online'] for m in resp.context['machines']}
+        self.assertFalse(by_code['AD-111'])
+        self.assertTrue(by_code['AD-222'])
+
+
+class StatusCacheAnyDeskTests(TestCase):
+    """Background AnyDesk check (status_cache._anydesk_check)."""
+
+    def setUp(self):
+        from django.db import connection
+        from django.core.cache import cache
+        cache.clear()
+        with connection.cursor() as c:
+            c.execute("CREATE TABLE IF NOT EXISTS oees_anydesk "
+                      "(id_anydesk INTEGER PRIMARY KEY, code VARCHAR(50), "
+                      "description VARCHAR(100), last_connection DATETIME NULL)")
+            c.execute("DELETE FROM oees_anydesk")
+            c.execute("INSERT INTO oees_anydesk VALUES (1, 'AD-111', 'PC1', NULL)")
+            c.execute("INSERT INTO oees_anydesk VALUES (2, 'AD-222', 'PC2', NULL)")
+
+    def test_not_configured_falls_back_to_last_connection(self):
+        # Without the API key, machines without a last_connection count as
+        # offline (matching the screen's dots), so the footer still shows alerts.
+        from oe_inventory_py_web import status_cache
+        alerts, status = status_cache._anydesk_check()
+        self.assertEqual(alerts, 2)   # both AD-111 and AD-222 have NULL last_connection
+        self.assertEqual(status, {'AD-111': False, 'AD-222': False})
+
+    def test_table_missing_returns_none(self):
+        from django.db import connection
+        from oe_inventory_py_web import status_cache
+        with connection.cursor() as c:
+            c.execute("DROP TABLE oees_anydesk")
+        self.assertEqual(status_cache._anydesk_check(), (None, {}))
+
+    def test_counts_offline_and_stamps_online(self):
+        from django.test import override_settings
+        from django.db import connection
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+        with override_settings(ANYDESK_API_LICENSE='lic', ANYDESK_API_KEY='key'):
+            with patch('oe_inventory_py_web.anydesk.online_map',
+                       return_value={'AD-111': True, 'AD-222': False}):
+                alerts, status = status_cache._anydesk_check()
+        self.assertEqual(alerts, 1)                       # AD-222 offline
+        self.assertEqual(status, {'AD-111': True, 'AD-222': False})
+        with connection.cursor() as c:
+            c.execute("SELECT last_connection FROM oees_anydesk WHERE code='AD-111'")
+            self.assertIsNotNone(c.fetchone()[0])         # online -> stamped
+            c.execute("SELECT last_connection FROM oees_anydesk WHERE code='AD-222'")
+            self.assertIsNone(c.fetchone()[0])            # offline -> untouched
+
+    def test_api_error_keeps_last_known(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache, anydesk
+        with override_settings(ANYDESK_API_LICENSE='lic', ANYDESK_API_KEY='key'):
+            with patch('oe_inventory_py_web.anydesk.online_map',
+                       side_effect=anydesk.AnydeskError('boom')):
+                alerts, status = status_cache._anydesk_check({'anydesk_alerts': 5})
+        self.assertEqual(alerts, 5)   # keeps the previous figure on API failure
+
+
 class OmadaScreenTests(TestCase):
     """Omada sites-overview screen (server-rendered; API client mocked)."""
 
@@ -2080,7 +2197,8 @@ class NetAlertsBadgeTests(TestCase):
                 self.client.force_login(self.user)
                 resp = self.client.get(reverse('api_net_alerts'))
                 self.assertEqual(resp.status_code, 200)
-                self.assertEqual(resp.json(), {'alerts': 3, 'ok': True})
+                self.assertEqual(resp.json()['alerts'], 3)
+                self.assertTrue(resp.json()['ok'])
 
     def test_not_configured_returns_zero_not_ok(self):
         from django.test import override_settings
@@ -2088,7 +2206,8 @@ class NetAlertsBadgeTests(TestCase):
             self.client.force_login(self.user)
             resp = self.client.get(reverse('api_net_alerts'))
             self.assertEqual(resp.status_code, 200)
-            self.assertEqual(resp.json(), {'alerts': 0, 'ok': False})
+            self.assertEqual(resp.json()['alerts'], 0)
+            self.assertFalse(resp.json()['ok'])
 
     def test_api_failure_returns_zero_not_ok(self):
         from django.test import override_settings
@@ -2116,6 +2235,30 @@ class NetAlertsBadgeTests(TestCase):
         resp = self.client.get(reverse('mdi_home'))
         self.assertNotContains(resp, 'id="net-alerts-panel"')
 
+    def test_api_includes_anydesk_count(self):
+        from unittest.mock import patch
+        with patch('oe_inventory_py_web.status_cache.get_status',
+                   return_value={'net_alerts': 2, 'anydesk_alerts': 3}):
+            self.client.force_login(self.user)
+            data = self.client.get(reverse('api_net_alerts')).json()
+        self.assertEqual(data['alerts'], 2)
+        self.assertEqual(data['anydesk_alerts'], 3)
+        self.assertTrue(data['anydesk_ok'])
+
+    def test_anydesk_badge_rendered_for_net_overview_user(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('mdi_home'))
+        self.assertContains(resp, 'id="anydesk-alerts-panel"')
+        self.assertContains(resp, 'Remote Machines Alerts:')
+
+    def test_anydesk_badge_hidden_for_user_without_permission(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username='na_noperm3', password='pass12345', net_overview=0, reader=1)
+        self.client.force_login(other)
+        resp = self.client.get(reverse('mdi_home'))
+        self.assertNotContains(resp, 'id="anydesk-alerts-panel"')
+
 
 class StatusCacheTests(TestCase):
     """Background-refreshed footer status cache (status_cache)."""
@@ -2132,7 +2275,8 @@ class StatusCacheTests(TestCase):
             with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(3, 5)), \
                  patch('oe_inventory_py_web.nebula.site_overview', return_value=[{'alerts': 2}, {'alerts': 4}]):
                 data = status_cache.compute_and_store()
-        self.assertEqual(data, {'total_orders': 3, 'total_cards': 5, 'net_alerts': 6})
+        self.assertEqual(data, {'total_orders': 3, 'total_cards': 5,
+                                'net_alerts': 6, 'anydesk_alerts': None})
 
     def test_net_alerts_none_when_not_configured(self):
         from django.test import override_settings

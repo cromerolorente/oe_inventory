@@ -323,6 +323,16 @@ NEBULA_API_KEY = os.environ.get('NEBULA_API_KEY', '')
 NEBULA_ORG_ID = os.environ.get('NEBULA_ORG_ID', '')
 NEBULA_VERIFY_SSL = os.environ.get('NEBULA_VERIFY_SSL', 'True') == 'True'
 
+# AnyDesk REST API (my.anydesk management console, v1). Used to check whether the
+# remote machines in oees_anydesk are online. Auth is an HMAC token built from the
+# license id and API key (requested from AnyDesk support). Secrets via env only.
+ANYDESK_API_URL = os.environ.get('ANYDESK_API_URL', 'https://v1.api.anydesk.com:8081/')
+ANYDESK_API_LICENSE = os.environ.get('ANYDESK_API_LICENSE', '')
+ANYDESK_API_KEY = os.environ.get('ANYDESK_API_KEY', '')
+# AnyDesk uses a valid public cert; keep verification on in production. Set to
+# False only for local dev on macOS (python.org build lacks a CA bundle).
+ANYDESK_VERIFY_SSL = os.environ.get('ANYDESK_VERIFY_SSL', 'True') == 'True'
+
 # Footer status counters (pending orders/cards + network alerts) are computed in
 # a background thread and cached, so page navigation never waits on them. Set to
 # False (e.g. in tests) to disable the background thread and compute on demand.
@@ -337,3 +347,4 @@ if 'test' in sys.argv:
     MDI_STATUS_REFRESH_IN_BACKGROUND = False
     OMADA_BASE_URL = OMADA_OMADAC_ID = OMADA_CLIENT_ID = OMADA_CLIENT_SECRET = ''
     NEBULA_BASE_URL = NEBULA_API_KEY = NEBULA_ORG_ID = ''
+    ANYDESK_API_LICENSE = ANYDESK_API_KEY = ''

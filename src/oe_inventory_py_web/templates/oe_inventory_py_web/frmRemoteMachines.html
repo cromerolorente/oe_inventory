@@ -1,0 +1,65 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;">
+            <img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;">
+            Remote Machines Overview
+        </h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    {% if not available %}
+    <div class="card shadow-sm p-4 bg-white">
+        <h6 class="fw-bold"><i class="bi bi-info-circle"></i> Remote Machines table not available</h6>
+        <p class="mb-0 text-muted">The <code>oees_anydesk</code> table isn't present in this environment.</p>
+    </div>
+    {% else %}
+    {% if not configured %}
+    <div class="alert alert-warning small d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Remote Machines API not configured: set <code>ANYDESK_API_LICENSE</code> and <code>ANYDESK_API_KEY</code>.
+        The status dots below are provisional (based on the last recorded connection) until the key is set.
+    </div>
+    {% endif %}
+
+    <div class="d-flex align-items-center gap-3 mb-2 small text-muted">
+        <span><span class="anydesk-dot" style="background:#16a34a;"></span> Online</span>
+        <span><span class="anydesk-dot" style="background:#dc2626;"></span> Offline</span>
+    </div>
+
+    <div class="row g-3">
+        {% for m in machines %}
+        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+            <div class="card shadow-sm h-100 text-center p-3 bg-white position-relative">
+                <span class="anydesk-dot position-absolute top-0 end-0 m-2"
+                      title="{% if m.online %}Online{% else %}Offline{% endif %}"
+                      style="width:14px;height:14px;background:{% if m.online %}#16a34a{% else %}#dc2626{% endif %};"></span>
+                <div class="text-secondary" style="font-size:2.6rem; line-height:1;">
+                    <i class="bi bi-pc-display"></i>
+                </div>
+                <div class="fw-bold text-truncate mt-2" title="{{ m.description }}">{{ m.description }}</div>
+                <div class="small text-muted">AnyDesk: {{ m.code|default:'—' }}</div>
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-clock-history"></i>
+                    {% if m.last_connection %}{{ m.last_connection }}{% else %}never{% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card shadow-sm p-4 bg-white text-center text-muted">No machines in the table.</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .anydesk-dot { display:inline-block; width:11px; height:11px; border-radius:50%;
+        border:1px solid rgba(0,0,0,.15); vertical-align:middle; }
+</style>
+{% endblock %}

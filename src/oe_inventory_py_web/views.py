@@ -3470,8 +3470,69 @@ def api_net_alerts(request):
 
     # Read the background-refreshed cache (never call Nebula in the request path).
     from . import status_cache
-    n = status_cache.get_status().get('net_alerts')
-    return JsonResponse({'alerts': n or 0, 'ok': n is not None})
+    status = status_cache.get_status()
+    n = status.get('net_alerts')
+    ad = status.get('anydesk_alerts')
+    return JsonResponse({
+        'alerts': n or 0, 'ok': n is not None,
+        'anydesk_alerts': ad or 0, 'anydesk_ok': ad is not None,
+    })
+
+
+@login_required
+def frm_remote_machines_view(request):
+    """AnyDesk screen: shows each remote machine from oees_anydesk as a card with
+    its description and an online/offline status dot. The accessibility check runs
+    in the background process (status_cache); this screen just displays the latest
+    result. Gated by the net_overview permission.
+
+    Status per machine: the last background-check result when available; otherwise
+    (e.g. before the API key is set) it falls back to whether last_connection is
+    set, so the design can still be tuned with green/red dots."""
+    if not getattr(request.user, 'net_overview', 0):
+        return redirect('mdi_home')
+
+    from . import anydesk, status_cache
+    configured = anydesk.anydesk_configured()
+    status_map = status_cache.get_anydesk_status()   # code(str) -> online(bool)
+
+    machines, available = [], True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM oees_anydesk ORDER BY 1")
+            cols = [c[0] for c in cursor.description]
+
+            def idx(col):
+                return cols.index(col) if col else None
+
+            # Tolerate schema naming variants (the live column is `last_connetion`).
+            i_code = idx(anydesk.pick_column(cols, 'code'))
+            i_last = idx(anydesk.pick_column(cols, 'last_connection', prefix='last_conn'))
+            i_desc = idx(anydesk.pick_column(cols, 'description', 'name'))
+
+            for r in cursor.fetchall():
+                code = str(r[i_code]).strip() if i_code is not None else ''
+                last = r[i_last] if i_last is not None else None
+                desc = (r[i_desc] if i_desc is not None else None) or code
+                # Real status when the background check knows it; otherwise fall
+                # back to last_connection so the dots still render for design.
+                if code in status_map:
+                    online = status_map[code]
+                else:
+                    online = last is not None
+                machines.append({
+                    'code': code, 'description': desc,
+                    'last_connection': last, 'online': online,
+                })
+    except Exception:
+        logger.warning("oees_anydesk table not available in this environment")
+        available = False
+
+    return render(request, 'oe_inventory_py_web/frmRemoteMachines.html', {
+        'machines': machines,
+        'available': available,
+        'configured': configured,
+    })
 
 
 # ==========================================================================

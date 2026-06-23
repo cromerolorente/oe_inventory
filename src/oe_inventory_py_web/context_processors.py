@@ -128,5 +128,6 @@ def mdi_status_counters(request):
         'total_orders': status.get('total_orders') or 0,
         'total_cards': status.get('total_cards') or 0,
         'net_alerts': status.get('net_alerts'),
+        'anydesk_alerts': status.get('anydesk_alerts'),
         'online_users': len(ids),
     }

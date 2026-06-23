@@ -80,6 +80,7 @@
                 {% endif %}
                 {% if request.user.net_overview %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_net_overview' %}" onclick="showLoadingOverlay()">Net Overview</a>
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_remote_machines' %}">Remote Machines</a>
                 {% endif %}
                 {% if request.user.facturas %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_dist_invoices' %}">Dist Invoices</a>
@@ -146,6 +147,13 @@
                 <a href="{% url 'frm_net_overview' %}" onclick="showLoadingOverlay()"
                     class="badge bg-danger text-white text-decoration-none">
                     Net Alerts: <strong id="net-alerts-count">{{ net_alerts|default:0 }}</strong>
+                </a>
+            </div>
+            <div class="px-3" id="anydesk-alerts-panel" title="Open Remote Machines Desk"
+                style="cursor:pointer;{% if not anydesk_alerts %}display:none;{% endif %}">
+                <a href="{% url 'frm_remote_machines' %}"
+                    class="badge bg-danger text-white text-decoration-none">
+                    Remote Machines Alerts: <strong id="anydesk-alerts-count">{{ anydesk_alerts|default:0 }}</strong>
                 </a>
             </div>
             {% endif %}
@@ -240,18 +248,27 @@
             var panel = document.getElementById('net-alerts-panel');
             if (!panel) return;  // user without net_overview permission
             var countEl = document.getElementById('net-alerts-count');
+            var adPanel = document.getElementById('anydesk-alerts-panel');
+            var adCountEl = document.getElementById('anydesk-alerts-count');
             function refreshNetAlerts() {
                 // Reads the background-refreshed cache (instant); never triggers
-                // a Nebula call in this request, so it won't slow the user down.
+                // a Nebula/AnyDesk call in this request, so it won't slow the user.
                 fetch("{% url 'api_net_alerts' %}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
-                        if (!data || !data.ok) return;  // unknown -> keep current value
-                        var n = data.alerts || 0;
-                        countEl.textContent = n;
-                        panel.style.display = n > 0 ? '' : 'none';
+                        if (!data) return;
+                        if (data.ok) {
+                            var n = data.alerts || 0;
+                            countEl.textContent = n;
+                            panel.style.display = n > 0 ? '' : 'none';
+                        }
+                        if (data.anydesk_ok && adPanel) {
+                            var a = data.anydesk_alerts || 0;
+                            adCountEl.textContent = a;
+                            adPanel.style.display = a > 0 ? '' : 'none';
+                        }
                     })
-                    .catch(function () { /* keep the server-rendered value */ });
+                    .catch(function () { /* keep the server-rendered values */ });
             }
             // The badge is rendered server-side from the cache, so it shows
             // immediately on page load. We then poll every 20 s so that when the
