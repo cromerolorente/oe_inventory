@@ -88,7 +88,9 @@ def online_map():
     try:
         data = _request('clients')
     except Exception as exc:
-        logger.exception("AnyDesk clients request failed")
+        # Logged at WARNING (no traceback) — this runs every few minutes and the
+        # caller handles the failure with a fallback.
+        logger.warning("AnyDesk clients request failed: %s", exc)
         raise AnydeskError(str(exc))
 
     result = {}

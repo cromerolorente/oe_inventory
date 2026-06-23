@@ -2031,7 +2031,10 @@ class StatusCacheAnyDeskTests(TestCase):
             c.execute("SELECT last_connection FROM oees_anydesk WHERE code='AD-222'")
             self.assertIsNone(c.fetchone()[0])            # offline -> untouched
 
-    def test_api_error_keeps_last_known(self):
+    def test_api_error_falls_back_to_last_connection(self):
+        # A configured-but-failing API (e.g. bad/invalid key) must NOT hide the
+        # badge: it falls back to the last_connection logic so the footer still
+        # reflects the unreachable machines.
         from django.test import override_settings
         from unittest.mock import patch
         from oe_inventory_py_web import status_cache, anydesk
@@ -2039,7 +2042,8 @@ class StatusCacheAnyDeskTests(TestCase):
             with patch('oe_inventory_py_web.anydesk.online_map',
                        side_effect=anydesk.AnydeskError('boom')):
                 alerts, status = status_cache._anydesk_check({'anydesk_alerts': 5})
-        self.assertEqual(alerts, 5)   # keeps the previous figure on API failure
+        self.assertEqual(alerts, 2)   # both machines have NULL last_connection -> offline
+        self.assertEqual(status, {'AD-111': False, 'AD-222': False})
 
 
 class OmadaScreenTests(TestCase):

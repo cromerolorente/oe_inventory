@@ -96,10 +96,10 @@ def _anydesk_check(prev=None):
 
     * With the API configured: the real online status; reachable machines get
       their ``last_connection`` stamped.
-    * Without the API key (or before it's set): a fallback where a machine counts
-      as online only if it has a ``last_connection`` — so the footer count matches
-      the green/red dots on the screen and the design can be tuned meanwhile.
-    * On a transient API error (configured): keep the last known figures.
+    * Without a working API (not configured, or the call failed / bad key): a
+      fallback where a machine counts as online only if it has a
+      ``last_connection`` — so the footer count and the green/red dots still
+      reflect the machines and the design can be tuned meanwhile.
     * Returns ``(None, {})`` only when the table itself isn't available.
     """
     from . import anydesk
@@ -110,8 +110,11 @@ def _anydesk_check(prev=None):
         try:
             online = anydesk.online_map()   # one call returns every client's status
         except Exception:
-            logger.exception("AnyDesk background check failed")
-            return prev.get('anydesk_alerts'), (cache.get(ANYDESK_STATUS_KEY) or {})
+            # API unreachable / bad credentials: fall through to the
+            # last_connection fallback so the footer still reflects the machines
+            # (otherwise a configured-but-failing key would hide the badge).
+            logger.warning("AnyDesk background check failed; using last_connection fallback")
+            online = None
 
     from . import anydesk as _ad
     status_map, offline = {}, 0
