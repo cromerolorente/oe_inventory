@@ -62,7 +62,11 @@
 
                 {% if r.alert %}
                 <div class="alert alert-danger py-1 px-2 small mb-2" role="alert">
+                    {% if not r.connected %}
+                    <i class="bi bi-exclamation-triangle-fill"></i> Device disconnected
+                    {% else %}
                     <i class="bi bi-exclamation-triangle-fill"></i> Occupied with no people detected
+                    {% endif %}
                 </div>
                 {% endif %}
 

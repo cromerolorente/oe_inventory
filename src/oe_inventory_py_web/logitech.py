@@ -123,12 +123,13 @@ def demo_rooms():
     """Sample rooms (same shape as rooms_overview) shown when the integration
     isn't configured yet, so the screen design can be worked on meanwhile."""
     def room(name, occupied, in_meeting, occupancy, model, status, organizer='', title=''):
+        connected = status == 'connected'
         return {
             'id': 'demo-' + name, 'name': name,
             'occupied': occupied, 'in_meeting': in_meeting, 'occupancy': occupancy,
-            'connected': status == 'connected',
+            'connected': connected,
             'organizer': organizer, 'title': title,
-            'alert': _is_occupied_but_empty(occupied, in_meeting, occupancy),
+            'alert': _is_occupied_but_empty(occupied, in_meeting, occupancy) or not connected,
             'devices': [{'model': model, 'firmware': 'CollabOS 1.12.x', 'status': status}],
         }
     return [
@@ -171,6 +172,7 @@ def rooms_overview():
         occupied = bool(insights.get('isOccupied'))
         in_meeting = bool(insights.get('inMeeting'))
         occupancy = insights.get('occupancyCount')
+        connected = any(d.get('status') == 'connected' for d in devices)
         org = insights.get('organizer') if isinstance(insights.get('organizer'), dict) else {}
         rooms.append({
             'id': p.get('id') or '',
@@ -189,10 +191,10 @@ def rooms_overview():
                                     or insights.get('scheduledStartTime') or insights.get('start')),
             'end_time': _parse_dt(insights.get('endTime') or insights.get('meetingEnd')
                                   or insights.get('scheduledEndTime') or insights.get('end')),
-            # Occupied/in-meeting but no people detected -> alert.
-            'alert': _is_occupied_but_empty(occupied, in_meeting, occupancy),
+            # Alert when occupied/in-meeting but no people detected, OR disconnected.
+            'alert': _is_occupied_but_empty(occupied, in_meeting, occupancy) or not connected,
             # A room is "connected" when at least one of its devices is connected.
-            'connected': any(d.get('status') == 'connected' for d in devices),
+            'connected': connected,
             'devices': [
                 {'model': d.get('model') or '',
                  'firmware': d.get('firmwareVersion') or '',

@@ -2088,6 +2088,18 @@ class LogitechClientTests(TestCase):
         self.assertEqual(r['organizer'], 'Ana García')   # extracted from {name: ...}
         self.assertTrue(r['alert'])                       # occupied/in-meeting but 0 people
 
+    def test_disconnected_room_is_alert(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import logitech
+        payload = {'places': [{
+            'id': 'r1', 'name': 'Sala', 'insights': {'isOccupied': False, 'occupancyCount': 0},
+            'devices': [{'model': 'Rally Bar', 'status': 'disconnected'}],
+        }]}
+        with patch('oe_inventory_py_web.logitech._request', return_value=payload):
+            r = logitech.rooms_overview()[0]
+        self.assertFalse(r['connected'])
+        self.assertTrue(r['alert'])     # disconnected -> alert even if free
+
     def test_parse_dt_iso_and_epoch(self):
         import datetime
         from oe_inventory_py_web import logitech
@@ -2170,10 +2182,11 @@ class VideoRoomsScreenTests(TestCase):
             self.assertContains(resp, 'Occupied with no people')  # alert highlighted
 
     def test_video_rooms_alert_count_from_demo(self):
-        # Not configured -> demo rooms; one is occupied-but-empty -> 1 alert.
+        # Not configured -> demo rooms; alerts = occupied-but-empty + disconnected
+        # (Sala Formación occupied with 0 people, Sala Goya disconnected) -> 2.
         from oe_inventory_py_web import status_cache
         alerts, rooms, is_real = status_cache._video_rooms_check()
-        self.assertEqual(alerts, 1)
+        self.assertEqual(alerts, 2)
         self.assertFalse(is_real)        # demo data -> not persisted
         self.assertTrue(rooms)
 
