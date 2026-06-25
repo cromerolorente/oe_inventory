@@ -298,7 +298,11 @@ LOGGING = {
 
 EMAIL_BACKEND = 'oe_inventory_py_web.email_backend.ResendEmailBackend'
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
+# `or` (not a default arg) so an empty env value still falls back to a valid sender.
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or 'onboarding@resend.dev'
+# Resend uses a valid public cert; keep verification on in production. Set to
+# False only for local dev on macOS (python.org build lacks a CA bundle).
+RESEND_VERIFY_SSL = os.environ.get('RESEND_VERIFY_SSL', 'True') == 'True'
 
 # Recipient for the staff inventory reports (the People department).
 STAFF_REPORT_RECIPIENT = os.environ.get('STAFF_REPORT_RECIPIENT', '')

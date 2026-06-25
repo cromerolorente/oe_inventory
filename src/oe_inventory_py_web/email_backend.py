@@ -12,6 +12,8 @@ existing no-extra-dependency style (same as the Nominatim geocoding helper).
 import base64
 import json
 import logging
+import ssl
+import urllib.error
 import urllib.request
 
 from django.conf import settings
@@ -20,6 +22,18 @@ from django.core.mail.backends.base import BaseEmailBackend
 logger = logging.getLogger(__name__)
 
 RESEND_API_URL = 'https://api.resend.com/emails'
+
+
+def _ssl_context():
+    # Resend uses a valid public certificate, so verification works on the
+    # server. The python.org build on macOS ships without a CA bundle, so set
+    # RESEND_VERIFY_SSL=False locally to bypass verification.
+    if getattr(settings, 'RESEND_VERIFY_SSL', True):
+        return None
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 def build_resend_payload(message):
@@ -100,7 +114,20 @@ class ResendEmailBackend(BaseEmailBackend):
             headers={
                 'Authorization': f'Bearer {self.api_key}',
                 'Content-Type': 'application/json',
+                # Resend's API is behind Cloudflare, which blocks urllib's default
+                # User-Agent (Python-urllib/x.y) with error 1010. Send a normal UA.
+                'User-Agent': 'Mozilla/5.0 (compatible; OE-Inventory/1.0; +https://octoenergy.com)',
             },
         )
-        with urllib.request.urlopen(request, timeout=15) as response:
-            response.read()
+        try:
+            with urllib.request.urlopen(request, timeout=15, context=_ssl_context()) as response:
+                response.read()
+        except urllib.error.HTTPError as exc:
+            # Surface Resend's error body (reason for 4xx, e.g. unverified domain
+            # or a recipient not allowed in testing mode) so it's actionable.
+            try:
+                body = exc.read().decode('utf-8', 'replace')
+            except Exception:
+                body = ''
+            logger.error("Resend API %s: %s", exc.code, body)
+            raise
