@@ -2812,9 +2812,9 @@ def frm_mobile_lines_view(request):
                     "WHERE origin IS NOT NULL AND origin <> '' ORDER BY origin ASC")
         origins = [row[0] for row in cur.fetchall()]
 
-    # Stock phones available to receive a SIM (no person assigned).
+    # Phones available to receive a SIM: those WITHOUT a SIM (id_line) assigned.
     stock_phones = list(
-        OeesMobilePhones.objects.filter(Q(persone__isnull=True) | Q(persone_id=0))
+        OeesMobilePhones.objects.filter(Q(id_line__isnull=True) | Q(id_line=0))
         .exclude(serial_number='Personal Mobile').order_by('serial_number')
         .values_list('serial_number', flat=True)
     )

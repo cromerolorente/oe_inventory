@@ -737,6 +737,20 @@ class MobileLinesScreenTests(TestCase):
         self.assertTrue(data['exists'])
         self.assertEqual(data['data']['origin'], 'Vodafone')
 
+    def test_stock_phones_lists_phones_without_sim(self):
+        # The phone dropdown for SIM assignment must list phones WITHOUT a SIM
+        # (id_line), regardless of whether they have a person assigned.
+        from oe_inventory_py_web.models import OeesMobilePhones, OeesStaff
+        staff = OeesStaff.objects.create(name='Owner', notes='', persona_fisica=1)
+        OeesMobilePhones.objects.create(serial_number='NO-SIM-NO-PERSON', type='MOBILE', value=0)
+        OeesMobilePhones.objects.create(serial_number='NO-SIM-WITH-PERSON', type='MOBILE', value=0, persone=staff)
+        OeesMobilePhones.objects.create(serial_number='HAS-SIM', type='MOBILE', value=0, id_line=self.line)
+        self.client.force_login(self.user)
+        stock = self.client.get(reverse('frm_mobile_lines')).context['stock_phones']
+        self.assertIn('NO-SIM-NO-PERSON', stock)
+        self.assertIn('NO-SIM-WITH-PERSON', stock)   # has a person but no SIM -> eligible
+        self.assertNotIn('HAS-SIM', stock)           # already has a SIM -> excluded
+
     def test_api_get_line_not_found(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse('api_get_line'), {'number': '000'})
