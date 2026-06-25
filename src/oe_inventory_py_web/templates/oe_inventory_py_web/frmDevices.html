@@ -222,8 +222,10 @@ and is tied to window 'load' which fires once the table is fully ready.
 <!-- Include the finder modal's HTML and JS here at the end. -->
 {% include "oe_inventory_py_web/partials/finder_modal.html" %}
 
-{# Show server-side messages (save / send / receive results) on THIS page,
-   right after the action, so they aren't carried over to the next screen. #}
+{% comment %}
+Show server-side messages (save / send / receive results) on THIS page,
+right after the action, so they aren't carried over to the next screen.
+{% endcomment %}
 {% if messages %}
 <script>
     document.addEventListener("DOMContentLoaded", function () {

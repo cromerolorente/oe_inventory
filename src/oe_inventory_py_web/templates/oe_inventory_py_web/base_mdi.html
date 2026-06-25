@@ -81,6 +81,7 @@
                 {% if request.user.net_overview %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_net_overview' %}" onclick="showLoadingOverlay()">Net Overview</a>
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_remote_machines' %}">Remote Machines</a>
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_video_rooms' %}">Video Rooms</a>
                 {% endif %}
                 {% if request.user.facturas %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_dist_invoices' %}">Dist Invoices</a>
@@ -154,6 +155,13 @@
                 <a href="{% url 'frm_remote_machines' %}"
                     class="badge bg-danger text-white text-decoration-none">
                     Remote Machines Alerts: <strong id="anydesk-alerts-count">{{ anydesk_alerts|default:0 }}</strong>
+                </a>
+            </div>
+            <div class="px-3" id="video-rooms-alerts-panel" title="Open Video Rooms"
+                style="cursor:pointer;{% if not video_rooms_alerts %}display:none;{% endif %}">
+                <a href="{% url 'frm_video_rooms' %}"
+                    class="badge bg-danger text-white text-decoration-none">
+                    Video Rooms Alerts: <strong id="video-rooms-alerts-count">{{ video_rooms_alerts|default:0 }}</strong>
                 </a>
             </div>
             {% endif %}
@@ -250,6 +258,8 @@
             var countEl = document.getElementById('net-alerts-count');
             var adPanel = document.getElementById('anydesk-alerts-panel');
             var adCountEl = document.getElementById('anydesk-alerts-count');
+            var vrPanel = document.getElementById('video-rooms-alerts-panel');
+            var vrCountEl = document.getElementById('video-rooms-alerts-count');
             function refreshNetAlerts() {
                 // Reads the background-refreshed cache (instant); never triggers
                 // a Nebula/AnyDesk call in this request, so it won't slow the user.
@@ -266,6 +276,11 @@
                             var a = data.anydesk_alerts || 0;
                             adCountEl.textContent = a;
                             adPanel.style.display = a > 0 ? '' : 'none';
+                        }
+                        if (data.video_rooms_ok && vrPanel) {
+                            var v = data.video_rooms_alerts || 0;
+                            vrCountEl.textContent = v;
+                            vrPanel.style.display = v > 0 ? '' : 'none';
                         }
                     })
                     .catch(function () { /* keep the server-rendered values */ });

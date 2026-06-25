@@ -494,3 +494,22 @@ class OeesUnderRepair(models.Model):
         managed = True
         db_table = 'oees_under_repair'
 
+
+class OeesMeetingRoom(models.Model):
+    # Meeting-usage tracking, fed every 5 minutes by the background status check.
+    id = models.AutoField(primary_key=True)
+    meet_id = models.CharField(max_length=100, unique=True)   # Logitech meeting id
+    description = models.CharField(max_length=255, blank=True, null=True)  # meeting title
+    org_email = models.CharField(max_length=100, blank=True, null=True)    # organizer email
+    duration = models.IntegerField(default=0)   # minutes, +5 each cycle while occupied
+    occupied = models.IntegerField(default=0)   # effective occupied minutes (reserved)
+    start_time = models.DateTimeField(blank=True, null=True)  # room reservation start
+    end_time = models.DateTimeField(blank=True, null=True)    # room reservation end
+
+    def __str__(self):
+        return f"Meeting {self.meet_id} - {self.duration} min"
+
+    class Meta:
+        managed = True
+        db_table = 'oees_meeting_room'
+

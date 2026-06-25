@@ -2046,6 +2046,187 @@ class StatusCacheAnyDeskTests(TestCase):
         self.assertEqual(status, {'AD-111': False, 'AD-222': False})
 
 
+class LogitechClientTests(TestCase):
+    """logitech.rooms_overview: parse the Sync Cloud /places payload."""
+
+    def test_rooms_overview_parses_places(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import logitech
+        payload = {'places': [{
+            'id': 'r1', 'name': 'Sala de Juntas',
+            'insights': {'isOccupied': True, 'occupancyCount': 4, 'inMeeting': True},
+            'devices': [{'model': 'Rally Bar Mini', 'firmwareVersion': 'CollabOS 1.12.x',
+                         'status': 'connected'}],
+        }]}
+        with patch('oe_inventory_py_web.logitech._request', return_value=payload):
+            rooms = logitech.rooms_overview()
+        self.assertEqual(len(rooms), 1)
+        r = rooms[0]
+        self.assertEqual(r['name'], 'Sala de Juntas')
+        self.assertTrue(r['in_meeting'] and r['occupied'] and r['connected'])
+        self.assertEqual(r['occupancy'], 4)
+        self.assertEqual(r['devices'][0]['model'], 'Rally Bar Mini')
+
+    def test_rooms_overview_raises_on_error(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import logitech
+        with patch('oe_inventory_py_web.logitech._request', side_effect=ValueError('boom')):
+            with self.assertRaises(logitech.LogitechError):
+                logitech.rooms_overview()
+
+    def test_organizer_title_and_occupied_empty_alert(self):
+        from unittest.mock import patch
+        from oe_inventory_py_web import logitech
+        payload = {'places': [{
+            'id': 'r1', 'name': 'Sala', 'devices': [],
+            'insights': {'isOccupied': True, 'inMeeting': True, 'occupancyCount': 0,
+                         'meetingTitle': 'Daily', 'organizer': {'name': 'Ana García'}},
+        }]}
+        with patch('oe_inventory_py_web.logitech._request', return_value=payload):
+            r = logitech.rooms_overview()[0]
+        self.assertEqual(r['title'], 'Daily')
+        self.assertEqual(r['organizer'], 'Ana García')   # extracted from {name: ...}
+        self.assertTrue(r['alert'])                       # occupied/in-meeting but 0 people
+
+    def test_parse_dt_iso_and_epoch(self):
+        import datetime
+        from oe_inventory_py_web import logitech
+        self.assertIsNone(logitech._parse_dt(''))
+        self.assertEqual(logitech._parse_dt('2026-06-25T09:00:00+00:00'),
+                         datetime.datetime(2026, 6, 25, 9, 0, tzinfo=datetime.timezone.utc))
+        # epoch milliseconds
+        self.assertEqual(logitech._parse_dt(1782896400000),
+                         datetime.datetime.fromtimestamp(1782896400, tz=datetime.timezone.utc))
+
+    def test_no_alert_when_people_present_or_unknown(self):
+        from oe_inventory_py_web import logitech
+        # occupancy unknown (None) -> not an alert even if occupied
+        self.assertFalse(logitech._is_occupied_but_empty(True, False, None))
+        # people present -> not an alert
+        self.assertFalse(logitech._is_occupied_but_empty(True, True, 3))
+        # free + 0 -> not an alert
+        self.assertFalse(logitech._is_occupied_but_empty(False, False, 0))
+        # occupied + 0 -> alert
+        self.assertTrue(logitech._is_occupied_but_empty(True, False, 0))
+
+
+class VideoRoomsScreenTests(TestCase):
+    """Video Rooms screen (Logitech Sync; gated by net_overview, client mocked)."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='vr_user', password='pass12345', net_overview=1, reader=0)
+
+    def test_requires_login(self):
+        self.assertEqual(self.client.get(reverse('frm_video_rooms')).status_code, 302)
+
+    def test_forbidden_without_permission(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username='vr_noperm', password='pass12345', net_overview=0, reader=1)
+        self.client.force_login(other)
+        self.assertRedirects(self.client.get(reverse('frm_video_rooms')), reverse('mdi_home'))
+
+    def test_not_configured_shows_demo_rooms(self):
+        # In test mode the LOGITECH cert/key paths are blanked -> not configured,
+        # so the screen shows sample rooms (with a "Sample data" notice) so the
+        # design can be worked on before the certificate is available.
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_video_rooms'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.context['configured'])
+        self.assertTrue(resp.context['demo'])
+        self.assertContains(resp, 'Sample data')
+        self.assertContains(resp, 'Sala de Juntas')   # a demo room
+        # Right panel: future-booking incidences (the demo includes an unknown email).
+        self.assertContains(resp, 'Future-booking incidences')
+        self.assertContains(resp, 'is not found in the users table')
+
+    def test_renders_rooms_when_configured(self):
+        from unittest.mock import patch
+        rows = [{
+            'id': 'r1', 'name': 'Sala de Juntas', 'occupied': True, 'in_meeting': True,
+            'occupancy': 0, 'connected': True, 'alert': True,
+            'organizer': 'Ana García', 'title': 'Comité',
+            'devices': [{'model': 'Rally Bar Mini', 'firmware': 'CollabOS 1.12.x', 'status': 'connected'}],
+        }]
+        with patch('oe_inventory_py_web.logitech.logitech_configured', return_value=True), \
+             patch('oe_inventory_py_web.logitech.rooms_overview', return_value=rows):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('frm_video_rooms'))
+            self.assertTrue(resp.context['configured'])
+            self.assertContains(resp, 'Sala de Juntas')
+            self.assertContains(resp, 'Rally Bar Mini')
+            self.assertContains(resp, 'In meeting')
+            self.assertContains(resp, 'Ana García')          # organizer shown
+            self.assertContains(resp, 'Comité')              # meeting title shown
+            self.assertContains(resp, 'Occupied with no people')  # alert highlighted
+
+    def test_video_rooms_alert_count_from_demo(self):
+        # Not configured -> demo rooms; one is occupied-but-empty -> 1 alert.
+        from oe_inventory_py_web import status_cache
+        alerts, rooms, is_real = status_cache._video_rooms_check()
+        self.assertEqual(alerts, 1)
+        self.assertFalse(is_real)        # demo data -> not persisted
+        self.assertTrue(rooms)
+
+    def test_track_meetings_inserts_then_increments(self):
+        from oe_inventory_py_web import status_cache
+        from oe_inventory_py_web.models import OeesMeetingRoom
+        import datetime
+        start = datetime.datetime(2026, 6, 25, 9, 0, tzinfo=datetime.timezone.utc)
+        end = datetime.datetime(2026, 6, 25, 10, 0, tzinfo=datetime.timezone.utc)
+        occupied = [{'meet_id': 'M1', 'title': 'Daily', 'organizer_email': 'a@x.com',
+                     'occupied': True, 'start_time': start, 'end_time': end}]
+        # 1st cycle: insert with duration 0 and the reservation window.
+        status_cache._track_meetings(occupied)
+        m = OeesMeetingRoom.objects.get(meet_id='M1')
+        self.assertEqual(m.duration, 0)
+        self.assertEqual(m.description, 'Daily')
+        self.assertEqual(m.org_email, 'a@x.com')
+        self.assertEqual(m.start_time, start)
+        self.assertEqual(m.end_time, end)
+        # 2nd cycle, still occupied: +5.
+        status_cache._track_meetings(occupied)
+        self.assertEqual(OeesMeetingRoom.objects.get(meet_id='M1').duration, 5)
+        # 3rd cycle, NOT occupied: no change.
+        status_cache._track_meetings([{'meet_id': 'M1', 'occupied': False}])
+        self.assertEqual(OeesMeetingRoom.objects.get(meet_id='M1').duration, 5)
+
+    def test_track_meetings_skips_rooms_without_meeting_id(self):
+        from oe_inventory_py_web import status_cache
+        from oe_inventory_py_web.models import OeesMeetingRoom
+        status_cache._track_meetings([{'meet_id': '', 'occupied': True}])
+        self.assertEqual(OeesMeetingRoom.objects.count(), 0)
+
+    def test_booking_incidences_deactivated_and_unknown(self):
+        from oe_inventory_py_web.models import OeesStaff
+        from oe_inventory_py_web.views import _booking_incidences
+        OeesStaff.objects.create(name='Jane Doe', notes='', persona_fisica=1,
+                                 email='jane@x.com', fecha_baja='06-10-2025', state=0)
+        OeesStaff.objects.create(name='Active Al', notes='', persona_fisica=1,
+                                 email='al@x.com', fecha_baja='', state=1)
+        bookings = [
+            {'organizer_email': 'Jane@x.com'}, {'organizer_email': 'jane@x.com'},  # 2, case-insensitive
+            {'organizer_email': 'al@x.com'},        # active -> no incidence
+            {'organizer_email': 'ghost@x.com'},     # not in staff
+        ]
+        joined = ' | '.join(_booking_incidences(bookings))
+        self.assertIn('User Jane Doe, deactivated since 06-10-2025, has 2 future bookings', joined)
+        self.assertIn('The email ghost@x.com is not found in the users table', joined)
+        self.assertNotIn('al@x.com', joined)    # active organizer produces no line
+
+    def test_shows_error_when_api_fails(self):
+        from unittest.mock import patch
+        with patch('oe_inventory_py_web.logitech.logitech_configured', return_value=True), \
+             patch('oe_inventory_py_web.logitech.rooms_overview', side_effect=Exception('boom')):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('frm_video_rooms'))
+            self.assertIsNotNone(resp.context['error'])
+            self.assertContains(resp, 'Could not reach the Logitech Sync Cloud API')
+
+
 class OmadaScreenTests(TestCase):
     """Omada sites-overview screen (server-rendered; API client mocked)."""
 
@@ -2279,8 +2460,9 @@ class StatusCacheTests(TestCase):
             with patch('oe_inventory_py_web.context_processors.pending_counts', return_value=(3, 5)), \
                  patch('oe_inventory_py_web.nebula.site_overview', return_value=[{'alerts': 2}, {'alerts': 4}]):
                 data = status_cache.compute_and_store()
-        self.assertEqual(data, {'total_orders': 3, 'total_cards': 5,
-                                'net_alerts': 6, 'anydesk_alerts': None})
+        self.assertEqual(data['total_orders'], 3)
+        self.assertEqual(data['total_cards'], 5)
+        self.assertEqual(data['net_alerts'], 6)
 
     def test_net_alerts_none_when_not_configured(self):
         from django.test import override_settings

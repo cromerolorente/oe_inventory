@@ -33,7 +33,8 @@ NEBULA_ERROR = ("Could not reach the Nebula API. Check the API key, "
                 "organization id and base URL.")
 
 # Returned while the first background compute is still running (cold start).
-PLACEHOLDER = {'total_orders': 0, 'total_cards': 0, 'net_alerts': None, 'anydesk_alerts': None}
+PLACEHOLDER = {'total_orders': 0, 'total_cards': 0, 'net_alerts': None,
+               'anydesk_alerts': None, 'video_rooms_alerts': None}
 
 
 def _refresh_seconds():
@@ -59,14 +60,22 @@ def compute_and_store():
     prev = cache.get(DATA_KEY) or {}
     total_orders, total_cards = pending_counts()
 
-    # AnyDesk check first — it's cheap, so its alert count is published before the
-    # slow Nebula call below (no waiting for the badge to appear).
+    # AnyDesk + video-rooms checks first — cheap, so their alert counts are
+    # published before the slow Nebula call below (no waiting for the badges).
     anydesk_alerts, anydesk_status = _anydesk_check(prev)
     cache.set(ANYDESK_STATUS_KEY, anydesk_status, None)
+    video_rooms_alerts, vr_rooms, vr_real = _video_rooms_check(prev)
+    # Persist meeting-usage tracking — only with real Logitech data (never demo).
+    if vr_real and vr_rooms:
+        try:
+            _track_meetings(vr_rooms)
+        except Exception:
+            logger.warning("Meeting tracking update failed")
 
     # Publish the cheap figures straight away (keep any known net_alerts).
     _store({'total_orders': total_orders, 'total_cards': total_cards,
-            'net_alerts': prev.get('net_alerts'), 'anydesk_alerts': anydesk_alerts})
+            'net_alerts': prev.get('net_alerts'), 'anydesk_alerts': anydesk_alerts,
+            'video_rooms_alerts': video_rooms_alerts})
 
     net_alerts = None
     if nebula.nebula_configured():
@@ -84,9 +93,54 @@ def compute_and_store():
         cache.set(ERR_KEY, None, None)
 
     data = {'total_orders': total_orders, 'total_cards': total_cards,
-            'net_alerts': net_alerts, 'anydesk_alerts': anydesk_alerts}
+            'net_alerts': net_alerts, 'anydesk_alerts': anydesk_alerts,
+            'video_rooms_alerts': video_rooms_alerts}
     _store(data)
     return data
+
+
+def _video_rooms_check(prev=None):
+    """Returns ``(alerts, rooms, is_real)`` for the videoconference rooms.
+
+    ``alerts`` = rooms occupied/in-meeting but empty (occupancy 0). Uses the live
+    Logitech API when configured (``is_real=True``); otherwise the demo rooms
+    (``is_real=False``) so the footer badge and screen design work before the
+    certificate is set. Meeting tracking persists only when ``is_real`` is True."""
+    from . import logitech
+    prev = prev or {}
+    if logitech.logitech_configured():
+        try:
+            rooms = logitech.rooms_overview()
+        except Exception:
+            logger.warning("Logitech video-rooms check failed; keeping last known")
+            return prev.get('video_rooms_alerts'), [], True
+        return sum(1 for r in rooms if r.get('alert')), rooms, True
+    rooms = logitech.demo_rooms()
+    return sum(1 for r in rooms if r.get('alert')), rooms, False
+
+
+def _track_meetings(rooms):
+    """Persist meeting-usage tracking into oees_meeting_room (real data only).
+
+    The first time a meeting (``meet_id``) is seen we insert a row with
+    ``duration = 0``; on later cycles we add 5 minutes to ``duration`` while the
+    room is occupied (no change when it isn't). Rooms without a meeting id are
+    skipped."""
+    from django.db.models import F
+    from .models import OeesMeetingRoom
+    for r in rooms:
+        meet_id = (r.get('meet_id') or '').strip()
+        if not meet_id:
+            continue
+        _, created = OeesMeetingRoom.objects.get_or_create(
+            meet_id=meet_id,
+            defaults={'description': (r.get('title') or '')[:255],
+                      'org_email': (r.get('organizer_email') or '')[:100],
+                      'duration': 0, 'occupied': 0,
+                      'start_time': r.get('start_time'),
+                      'end_time': r.get('end_time')})
+        if not created and r.get('occupied'):
+            OeesMeetingRoom.objects.filter(meet_id=meet_id).update(duration=F('duration') + 5)
 
 
 def _anydesk_check(prev=None):

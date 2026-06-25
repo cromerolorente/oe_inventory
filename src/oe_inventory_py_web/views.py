@@ -3473,9 +3473,11 @@ def api_net_alerts(request):
     status = status_cache.get_status()
     n = status.get('net_alerts')
     ad = status.get('anydesk_alerts')
+    vr = status.get('video_rooms_alerts')
     return JsonResponse({
         'alerts': n or 0, 'ok': n is not None,
         'anydesk_alerts': ad or 0, 'anydesk_ok': ad is not None,
+        'video_rooms_alerts': vr or 0, 'video_rooms_ok': vr is not None,
     })
 
 
@@ -3532,6 +3534,90 @@ def frm_remote_machines_view(request):
         'machines': machines,
         'available': available,
         'configured': configured,
+    })
+
+
+def _booking_incidences(bookings):
+    """English incidence lines for future bookings whose organizer email is, in
+    oees_staff, deactivated (has a fecha_baja) or not found at all. Bookings are
+    grouped per organizer email; the count is the number of future bookings."""
+    from collections import Counter
+    counts = Counter()
+    for b in bookings:
+        email = (b.get('organizer_email') or '').strip().lower()
+        if email:
+            counts[email] += 1
+
+    lines = []
+    if not counts:
+        return lines
+    with connection.cursor() as cur:
+        for email in sorted(counts):
+            n = counts[email]
+            cur.execute(
+                "SELECT name, fecha_baja FROM oees_staff "
+                "WHERE LOWER(TRIM(email)) = %s ORDER BY id_staff DESC LIMIT 1", [email])
+            row = cur.fetchone()
+            if not row:
+                lines.append(f"The email {email} is not found in the users table.")
+            elif row[1]:  # fecha_baja set -> the organizer is on leave
+                plural = 's' if n != 1 else ''
+                lines.append(f"User {row[0]}, deactivated since {row[1]}, "
+                             f"has {n} future booking{plural}.")
+    return lines
+
+
+def _demo_bookings():
+    """Sample future bookings for the design preview: a couple of real
+    deactivated staff (so the message shows live data) plus an unknown email."""
+    bookings = []
+    with connection.cursor() as cur:
+        cur.execute(
+            "SELECT email FROM oees_staff WHERE fecha_baja IS NOT NULL AND fecha_baja <> '' "
+            "AND email IS NOT NULL AND email <> '' ORDER BY id_staff DESC LIMIT 2")
+        for (email,) in cur.fetchall():
+            bookings.append({'organizer_email': email})
+            bookings.append({'organizer_email': email})  # 2 future bookings each
+    bookings.append({'organizer_email': 'former.employee@example.com'})  # not in staff
+    return bookings
+
+
+@login_required
+def frm_video_rooms_view(request):
+    """Videoconference rooms status from the Logitech Sync Cloud API (mTLS).
+    Read-only overview, gated by the net_overview permission. Shows a
+    "not configured" notice until the client certificate/key are in place.
+    The right panel lists future-booking incidences (organizer on leave or
+    unknown email) cross-referenced against oees_staff."""
+    if not getattr(request.user, 'net_overview', 0):
+        return redirect('mdi_home')
+
+    from . import logitech
+    configured = logitech.logitech_configured()
+    rooms, error, demo, booking_incidences = [], None, False, []
+    if configured:
+        try:
+            rooms = logitech.rooms_overview()
+        except Exception:
+            logger.exception("Logitech Sync API error")
+            error = ("Could not reach the Logitech Sync Cloud API. Check the "
+                     "certificate, private key and base URL.")
+        if not error:
+            try:
+                booking_incidences = _booking_incidences(logitech.future_bookings())
+            except Exception:
+                logger.warning("Logitech bookings unavailable")
+    else:
+        # No certificate/license yet: show sample rooms + incidences for design.
+        rooms = logitech.demo_rooms()
+        demo = True
+        booking_incidences = _booking_incidences(_demo_bookings())
+    return render(request, 'oe_inventory_py_web/frmVideoRooms.html', {
+        'rooms': rooms,
+        'configured': configured,
+        'error': error,
+        'demo': demo,
+        'booking_incidences': booking_incidences,
     })
 
 

@@ -333,6 +333,14 @@ ANYDESK_API_KEY = os.environ.get('ANYDESK_API_KEY', '')
 # False only for local dev on macOS (python.org build lacks a CA bundle).
 ANYDESK_VERIFY_SSL = os.environ.get('ANYDESK_VERIFY_SSL', 'True') == 'True'
 
+# Logitech Sync Cloud API (mTLS with a client certificate). Used to monitor the
+# videoconference rooms (Logitech Rally Bar / Bar Mini). The client certificate
+# and private key live in src/certs/ (gitignored); paths/URL via env only.
+LOGITECH_API_BASE_URL = os.environ.get('LOGITECH_API_BASE_URL', 'https://logitech.com')
+LOGITECH_CERT_PATH = os.environ.get('LOGITECH_CERT_PATH', os.path.join(BASE_DIR, 'certs', 'logitech_sync.pem'))
+LOGITECH_KEY_PATH = os.environ.get('LOGITECH_KEY_PATH', os.path.join(BASE_DIR, 'certs', 'logitech_sync.key'))
+LOGITECH_VERIFY_SSL = os.environ.get('LOGITECH_VERIFY_SSL', 'True') == 'True'
+
 # Footer status counters (pending orders/cards + network alerts) are computed in
 # a background thread and cached, so page navigation never waits on them. Set to
 # False (e.g. in tests) to disable the background thread and compute on demand.
@@ -348,3 +356,4 @@ if 'test' in sys.argv:
     OMADA_BASE_URL = OMADA_OMADAC_ID = OMADA_CLIENT_ID = OMADA_CLIENT_SECRET = ''
     NEBULA_BASE_URL = NEBULA_API_KEY = NEBULA_ORG_ID = ''
     ANYDESK_API_LICENSE = ANYDESK_API_KEY = ''
+    LOGITECH_CERT_PATH = LOGITECH_KEY_PATH = ''

@@ -3,6 +3,11 @@
 *.env
 !.env.example
 
+# TLS client certificates / private keys (Logitech Sync mTLS, etc.)
+certs/
+*.pem
+*.key
+
 # Python
 __pycache__/
 *.py[cod]
