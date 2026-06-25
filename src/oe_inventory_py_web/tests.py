@@ -2142,6 +2142,9 @@ class VideoRoomsScreenTests(TestCase):
         # Right panel: future-booking incidences (the demo includes an unknown email).
         self.assertContains(resp, 'Future-booking incidences')
         self.assertContains(resp, 'is not found in the users table')
+        # Right panel: under-used meetings table (demo rows).
+        self.assertContains(resp, 'Under-used meetings')
+        self.assertContains(resp, 'Comité de Dirección')
 
     def test_renders_rooms_when_configured(self):
         from unittest.mock import patch
@@ -2176,29 +2179,54 @@ class VideoRoomsScreenTests(TestCase):
         from oe_inventory_py_web.models import OeesMeetingRoom
         import datetime
         start = datetime.datetime(2026, 6, 25, 9, 0, tzinfo=datetime.timezone.utc)
-        end = datetime.datetime(2026, 6, 25, 10, 0, tzinfo=datetime.timezone.utc)
+        end = datetime.datetime(2026, 6, 25, 10, 0, tzinfo=datetime.timezone.utc)  # 60 min reserved
         occupied = [{'meet_id': 'M1', 'title': 'Daily', 'organizer_email': 'a@x.com',
                      'occupied': True, 'start_time': start, 'end_time': end}]
-        # 1st cycle: insert with duration 0 and the reservation window.
+        # 1st cycle: insert. duration = initial reserved length (60); occupied 0.
         status_cache._track_meetings(occupied)
         m = OeesMeetingRoom.objects.get(meet_id='M1')
-        self.assertEqual(m.duration, 0)
+        self.assertEqual(m.duration, 60)
+        self.assertEqual(m.occupied, 0)
         self.assertEqual(m.description, 'Daily')
         self.assertEqual(m.org_email, 'a@x.com')
         self.assertEqual(m.start_time, start)
         self.assertEqual(m.end_time, end)
-        # 2nd cycle, still occupied: +5.
+        # 2nd cycle, occupied: occupied +5, duration unchanged.
         status_cache._track_meetings(occupied)
-        self.assertEqual(OeesMeetingRoom.objects.get(meet_id='M1').duration, 5)
-        # 3rd cycle, NOT occupied: no change.
+        m = OeesMeetingRoom.objects.get(meet_id='M1')
+        self.assertEqual(m.duration, 60)
+        self.assertEqual(m.occupied, 5)
+        # 3rd cycle, NOT occupied: no change to occupied (or duration).
         status_cache._track_meetings([{'meet_id': 'M1', 'occupied': False}])
-        self.assertEqual(OeesMeetingRoom.objects.get(meet_id='M1').duration, 5)
+        m = OeesMeetingRoom.objects.get(meet_id='M1')
+        self.assertEqual(m.duration, 60)
+        self.assertEqual(m.occupied, 5)
 
     def test_track_meetings_skips_rooms_without_meeting_id(self):
         from oe_inventory_py_web import status_cache
         from oe_inventory_py_web.models import OeesMeetingRoom
         status_cache._track_meetings([{'meet_id': '', 'occupied': True}])
         self.assertEqual(OeesMeetingRoom.objects.count(), 0)
+
+    def test_low_occupancy_meetings_filter_and_pct(self):
+        import datetime
+        from oe_inventory_py_web.models import OeesMeetingRoom
+        from oe_inventory_py_web.views import _low_occupancy_meetings
+        start = datetime.datetime(2026, 6, 24, 9, 0, tzinfo=datetime.timezone.utc)
+        OeesMeetingRoom.objects.create(meet_id='A', description='Low', org_email='a@x.com',
+                                       duration=60, occupied=12, start_time=start)   # 20% -> included
+        OeesMeetingRoom.objects.create(meet_id='B', description='Half', org_email='b@x.com',
+                                       duration=60, occupied=30, start_time=start)   # 50% -> included
+        OeesMeetingRoom.objects.create(meet_id='C', description='High', org_email='c@x.com',
+                                       duration=60, occupied=45, start_time=start)   # 75% -> excluded
+        OeesMeetingRoom.objects.create(meet_id='D', description='NoDur', org_email='d@x.com',
+                                       duration=0, occupied=0, start_time=start)     # duration 0 -> excluded
+        rows = _low_occupancy_meetings()
+        titles = {r['title']: r['pct'] for r in rows}
+        self.assertEqual(set(titles), {'Low', 'Half'})
+        self.assertEqual(titles['Low'], 20)
+        self.assertEqual(titles['Half'], 50)
+        self.assertEqual(rows[0]['date'], '24-06-2026')
 
     def test_booking_incidences_deactivated_and_unknown(self):
         from oe_inventory_py_web.models import OeesStaff

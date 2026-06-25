@@ -115,6 +115,35 @@
                 {% else %}
                 <p class="text-success small mb-0"><i class="bi bi-check-circle"></i> No future-booking incidences.</p>
                 {% endif %}
+
+                <hr class="my-3">
+                <h6 class="fw-bold text-secondary mb-2">
+                    <i class="bi bi-graph-down-arrow"></i> Under-used meetings (occupancy ≤ 50%)
+                </h6>
+                {% if low_occupancy %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0 small">
+                        <thead>
+                            <tr>
+                                <th>Date</th><th>Start</th><th>Title</th><th>Organizer</th><th class="text-end">% Occ.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in low_occupancy %}
+                            <tr>
+                                <td>{{ m.date }}</td>
+                                <td>{{ m.time }}</td>
+                                <td class="text-truncate" style="max-width:120px;" title="{{ m.title }}">{{ m.title }}</td>
+                                <td class="text-truncate" style="max-width:140px;" title="{{ m.organizer }}">{{ m.organizer }}</td>
+                                <td class="text-end fw-semibold text-danger">{{ m.pct }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-success small mb-0"><i class="bi bi-check-circle"></i> No under-used meetings.</p>
+                {% endif %}
             </div>
         </div>
     </div>

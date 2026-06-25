@@ -3567,6 +3567,42 @@ def _booking_incidences(bookings):
     return lines
 
 
+def _low_occupancy_meetings():
+    """Meetings whose effective occupancy was <= 50% of their duration, from
+    oees_meeting_room. Each row: date, start time, title, organizer, % occupied."""
+    from django.db.models import F
+    from .models import OeesMeetingRoom
+    rows = []
+    qs = (OeesMeetingRoom.objects
+          .filter(duration__gt=0, occupied__lte=F('duration') / 2.0)
+          .order_by('start_time'))
+    for m in qs:
+        rows.append({
+            'date': m.start_time.strftime('%d-%m-%Y') if m.start_time else '—',
+            'time': m.start_time.strftime('%H:%M') if m.start_time else '—',
+            'title': m.description or '—',
+            'organizer': m.org_email or '—',
+            'pct': round(m.occupied / m.duration * 100),
+        })
+    return rows
+
+
+def _demo_low_occupancy():
+    """Sample low-occupancy meetings for the design preview (no real data yet)."""
+    return [
+        {'date': '24-06-2026', 'time': '09:00', 'title': 'Comité de Dirección',
+         'organizer': 'ana.garcia@octopusenergy.es', 'pct': 20},
+        {'date': '24-06-2026', 'time': '11:30', 'title': 'Sprint Review',
+         'organizer': 'marta.ruiz@octopusenergy.es', 'pct': 33},
+        {'date': '24-06-2026', 'time': '13:00', 'title': '1:1 RRHH',
+         'organizer': 'former.employee@octopusenergy.es', 'pct': 10},
+        {'date': '25-06-2026', 'time': '10:00', 'title': 'Onboarding Q3',
+         'organizer': 'luis.perez@octopusenergy.es', 'pct': 50},
+        {'date': '25-06-2026', 'time': '16:00', 'title': 'Revisión Presupuesto',
+         'organizer': 'javier.soler@octopusenergy.es', 'pct': 40},
+    ]
+
+
 def _demo_bookings():
     """Sample future bookings for the design preview: a couple of real
     deactivated staff (so the message shows live data) plus an unknown email."""
@@ -3574,10 +3610,10 @@ def _demo_bookings():
     with connection.cursor() as cur:
         cur.execute(
             "SELECT email FROM oees_staff WHERE fecha_baja IS NOT NULL AND fecha_baja <> '' "
-            "AND email IS NOT NULL AND email <> '' ORDER BY id_staff DESC LIMIT 2")
-        for (email,) in cur.fetchall():
-            bookings.append({'organizer_email': email})
-            bookings.append({'organizer_email': email})  # 2 future bookings each
+            "AND email IS NOT NULL AND email <> '' ORDER BY id_staff DESC LIMIT 3")
+        for i, (email,) in enumerate(cur.fetchall()):
+            for _ in range(i + 1):   # 1, 2, 3 future bookings -> varied counts
+                bookings.append({'organizer_email': email})
     bookings.append({'organizer_email': 'former.employee@example.com'})  # not in staff
     return bookings
 
@@ -3594,7 +3630,7 @@ def frm_video_rooms_view(request):
 
     from . import logitech
     configured = logitech.logitech_configured()
-    rooms, error, demo, booking_incidences = [], None, False, []
+    rooms, error, demo, booking_incidences, low_occupancy = [], None, False, [], []
     if configured:
         try:
             rooms = logitech.rooms_overview()
@@ -3607,17 +3643,20 @@ def frm_video_rooms_view(request):
                 booking_incidences = _booking_incidences(logitech.future_bookings())
             except Exception:
                 logger.warning("Logitech bookings unavailable")
+            low_occupancy = _low_occupancy_meetings()
     else:
         # No certificate/license yet: show sample rooms + incidences for design.
         rooms = logitech.demo_rooms()
         demo = True
         booking_incidences = _booking_incidences(_demo_bookings())
+        low_occupancy = _demo_low_occupancy()
     return render(request, 'oe_inventory_py_web/frmVideoRooms.html', {
         'rooms': rooms,
         'configured': configured,
         'error': error,
         'demo': demo,
         'booking_incidences': booking_incidences,
+        'low_occupancy': low_occupancy,
     })
 
 

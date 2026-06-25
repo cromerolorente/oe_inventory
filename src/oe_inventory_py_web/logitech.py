@@ -132,14 +132,18 @@ def demo_rooms():
             'devices': [{'model': model, 'firmware': 'CollabOS 1.12.x', 'status': status}],
         }
     return [
-        room('Sala de Juntas', True, True, 4, 'Rally Bar', 'connected',
+        room('Sala de Juntas', True, True, 6, 'Rally Bar', 'connected',
              organizer='Ana García', title='Comité de Dirección'),
-        room('Sala Reuniones 1', True, False, 2, 'Rally Bar Mini', 'connected'),
-        room('Sala Dirección', False, False, 0, 'Rally Bar Mini', 'connected'),
+        room('Sala Picasso', True, True, 3, 'Rally Bar Mini', 'connected',
+             organizer='Marta Ruiz', title='Sprint Review'),
+        room('Sala Dalí', True, False, 2, 'Rally Bar Mini', 'connected'),
+        room('Sala Sorolla', True, True, 4, 'Rally Bar', 'connected',
+             organizer='Javier Soler', title='Demo Cliente'),
+        room('Sala Miró', False, False, 0, 'Rally Bar Mini', 'connected'),
         # Occupied / in meeting but nobody detected -> alert.
         room('Sala Formación', True, True, 0, 'Rally Bar', 'connected',
              organizer='Luis Pérez', title='Onboarding Q3'),
-        room('Sala Pequeña', False, False, 0, 'Rally Bar Mini', 'disconnected'),
+        room('Sala Goya', False, False, 0, 'Rally Bar Mini', 'disconnected'),
     ]
 
 

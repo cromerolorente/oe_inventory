@@ -122,25 +122,29 @@ def _video_rooms_check(prev=None):
 def _track_meetings(rooms):
     """Persist meeting-usage tracking into oees_meeting_room (real data only).
 
-    The first time a meeting (``meet_id``) is seen we insert a row with
-    ``duration = 0``; on later cycles we add 5 minutes to ``duration`` while the
-    room is occupied (no change when it isn't). Rooms without a meeting id are
-    skipped."""
+    The first time a meeting (``meet_id``) is seen we insert a row whose
+    ``duration`` is the meeting's initial (reserved) length in minutes
+    (end_time - start_time) and ``occupied = 0``. ``duration`` is then never
+    changed; on each later cycle we add 5 minutes to ``occupied`` only while the
+    room is actually occupied. occupied / duration is the room's usage ratio.
+    Rooms without a meeting id are skipped."""
     from django.db.models import F
     from .models import OeesMeetingRoom
     for r in rooms:
         meet_id = (r.get('meet_id') or '').strip()
         if not meet_id:
             continue
+        start, end = r.get('start_time'), r.get('end_time')
+        init_duration = int((end - start).total_seconds() // 60) if (start and end) else 0
         _, created = OeesMeetingRoom.objects.get_or_create(
             meet_id=meet_id,
             defaults={'description': (r.get('title') or '')[:255],
                       'org_email': (r.get('organizer_email') or '')[:100],
-                      'duration': 0, 'occupied': 0,
-                      'start_time': r.get('start_time'),
-                      'end_time': r.get('end_time')})
+                      'duration': init_duration, 'occupied': 0,
+                      'start_time': start, 'end_time': end})
+        # duration stays fixed; only accumulate occupied while the room is busy.
         if not created and r.get('occupied'):
-            OeesMeetingRoom.objects.filter(meet_id=meet_id).update(duration=F('duration') + 5)
+            OeesMeetingRoom.objects.filter(meet_id=meet_id).update(occupied=F('occupied') + 5)
 
 
 def _anydesk_check(prev=None):
