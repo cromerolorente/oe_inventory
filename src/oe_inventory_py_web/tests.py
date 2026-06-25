@@ -2145,6 +2145,9 @@ class VideoRoomsScreenTests(TestCase):
         # Right panel: under-used meetings table (demo rows).
         self.assertContains(resp, 'Under-used meetings')
         self.assertContains(resp, 'Comité de Dirección')
+        # Right panel: organizers no-show ranking (demo rows).
+        self.assertContains(resp, 'Organizers ranking')
+        self.assertContains(resp, 'Ana García')
 
     def test_renders_rooms_when_configured(self):
         from unittest.mock import patch
@@ -2207,6 +2210,20 @@ class VideoRoomsScreenTests(TestCase):
         from oe_inventory_py_web.models import OeesMeetingRoom
         status_cache._track_meetings([{'meet_id': '', 'occupied': True}])
         self.assertEqual(OeesMeetingRoom.objects.count(), 0)
+
+    def test_organizer_no_show_ranking(self):
+        from oe_inventory_py_web.models import OeesMeetingRoom, OeesStaff
+        from oe_inventory_py_web.views import _organizer_no_show_ranking
+        OeesStaff.objects.create(name='Ana García', notes='', persona_fisica=1, email='ana@x.com')
+        # ana: 2 meetings with occupied <= 10; bob: 1; ana also has 1 that doesn't count.
+        OeesMeetingRoom.objects.create(meet_id='1', org_email='ana@x.com', duration=60, occupied=0)
+        OeesMeetingRoom.objects.create(meet_id='2', org_email='ana@x.com', duration=60, occupied=10)
+        OeesMeetingRoom.objects.create(meet_id='3', org_email='ana@x.com', duration=60, occupied=40)  # excluded
+        OeesMeetingRoom.objects.create(meet_id='4', org_email='bob@x.com', duration=60, occupied=5)
+        ranking = _organizer_no_show_ranking()
+        # ana first (2), resolved to her staff name; bob second (1), shown as email.
+        self.assertEqual(ranking[0], {'organizer': 'Ana García', 'count': 2})
+        self.assertEqual(ranking[1], {'organizer': 'bob@x.com', 'count': 1})
 
     def test_low_occupancy_meetings_filter_and_pct(self):
         import datetime

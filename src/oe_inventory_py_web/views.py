@@ -3587,6 +3587,44 @@ def _low_occupancy_meetings():
     return rows
 
 
+def _organizer_no_show_ranking():
+    """Ranking of organizers by number of meetings that effectively didn't take
+    place (occupied <= 10 minutes), most first. Organizer names are resolved from
+    oees_staff by email; unknown emails are shown as-is."""
+    from django.db.models import Count
+    from .models import OeesMeetingRoom
+    agg = list(OeesMeetingRoom.objects
+               .filter(occupied__lte=10)
+               .exclude(org_email__isnull=True).exclude(org_email='')
+               .values('org_email').annotate(n=Count('id')).order_by('-n', 'org_email'))
+    if not agg:
+        return []
+    name_by_email = {}
+    emails = [a['org_email'].strip().lower() for a in agg if a['org_email']]
+    with connection.cursor() as cur:
+        ph = ','.join(['%s'] * len(emails))
+        cur.execute(f"SELECT LOWER(TRIM(email)), name FROM oees_staff "
+                    f"WHERE LOWER(TRIM(email)) IN ({ph})", emails)
+        for em, nm in cur.fetchall():
+            name_by_email[em] = nm
+    rows = []
+    for a in agg:
+        em = (a['org_email'] or '').strip()
+        rows.append({'organizer': name_by_email.get(em.lower()) or em or '—', 'count': a['n']})
+    return rows
+
+
+def _demo_no_show_ranking():
+    """Sample organizer no-show ranking for the design preview (no real data yet)."""
+    return [
+        {'organizer': 'Ana García', 'count': 7},
+        {'organizer': 'Luis Pérez', 'count': 5},
+        {'organizer': 'Marta Ruiz', 'count': 4},
+        {'organizer': 'Javier Soler', 'count': 2},
+        {'organizer': 'Carlos Méndez', 'count': 1},
+    ]
+
+
 def _demo_low_occupancy():
     """Sample low-occupancy meetings for the design preview (no real data yet)."""
     return [
@@ -3630,7 +3668,8 @@ def frm_video_rooms_view(request):
 
     from . import logitech
     configured = logitech.logitech_configured()
-    rooms, error, demo, booking_incidences, low_occupancy = [], None, False, [], []
+    rooms, error, demo = [], None, False
+    booking_incidences, low_occupancy, no_show_ranking = [], [], []
     if configured:
         try:
             rooms = logitech.rooms_overview()
@@ -3644,12 +3683,14 @@ def frm_video_rooms_view(request):
             except Exception:
                 logger.warning("Logitech bookings unavailable")
             low_occupancy = _low_occupancy_meetings()
+            no_show_ranking = _organizer_no_show_ranking()
     else:
         # No certificate/license yet: show sample rooms + incidences for design.
         rooms = logitech.demo_rooms()
         demo = True
         booking_incidences = _booking_incidences(_demo_bookings())
         low_occupancy = _demo_low_occupancy()
+        no_show_ranking = _demo_no_show_ranking()
     return render(request, 'oe_inventory_py_web/frmVideoRooms.html', {
         'rooms': rooms,
         'configured': configured,
@@ -3657,6 +3698,7 @@ def frm_video_rooms_view(request):
         'demo': demo,
         'booking_incidences': booking_incidences,
         'low_occupancy': low_occupancy,
+        'no_show_ranking': no_show_ranking,
     })
 
 
