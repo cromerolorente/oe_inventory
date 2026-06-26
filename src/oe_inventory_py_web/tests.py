@@ -1222,6 +1222,27 @@ class PasswordFlowTests(TestCase):
         self.assertFalse(target.check_password('hacked999'))
 
 
+class PasswordResetEmailTests(TestCase):
+    """The password-reset email is sent through the Resend backend."""
+
+    def test_reset_email_routes_through_resend_backend(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        User = get_user_model()
+        User.objects.create_user(username='resetme', password='pass12345', email='reset@x.com')
+        with override_settings(
+            EMAIL_BACKEND='oe_inventory_py_web.email_backend.ResendEmailBackend',
+            RESEND_API_KEY='test-key', DEFAULT_FROM_EMAIL='noreply@x.com',
+        ):
+            with patch('oe_inventory_py_web.email_backend.ResendEmailBackend._send') as send:
+                resp = self.client.post(reverse('password_reset'), {'email': 'reset@x.com'})
+        self.assertEqual(resp.status_code, 302)          # -> password_reset_done
+        self.assertEqual(send.call_count, 1)             # the email went via Resend
+        msg = send.call_args[0][0]
+        self.assertIn('reset@x.com', list(msg.to))
+        self.assertEqual(msg.from_email, 'noreply@x.com')
+
+
 class FooterCountersTests(TestCase):
     """The base_mdi footer counters (pending access cards / pending orders)."""
 
