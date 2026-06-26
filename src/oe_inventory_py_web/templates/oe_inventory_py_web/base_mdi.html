@@ -140,6 +140,8 @@
             <div class="status-panel" id="conn-status"></div>
             <div class="status-panel" id="online-users" role="button" tabindex="0" title="Show active users"
                 style="cursor: pointer;"><i class="bi bi-people-fill"></i> Online: <strong id="footer-online">{{ online_users|default:0 }}</strong></div>
+            <div class="status-panel" title="Last counters refresh (every 5 min)">
+                <i class="bi bi-arrow-repeat"></i> Updated: <strong id="footer-last-update">{{ last_update|default:'—' }}</strong></div>
         </div>
         <div class="d-flex">
             {% if request.user.net_overview %}
@@ -308,6 +310,7 @@
                         setText('footer-cards', data.total_cards);
                         setText('footer-orders', data.total_orders);
                         setText('footer-online', data.online_users);
+                        setText('footer-last-update', data.last_update);
                     })
                     .catch(function () { /* keep the last known values */ });
             }

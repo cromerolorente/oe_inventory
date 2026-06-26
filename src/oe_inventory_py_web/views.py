@@ -3453,6 +3453,7 @@ def api_footer_counts(request):
         'total_orders': status.get('total_orders') or 0,
         'total_cards': status.get('total_cards') or 0,
         'online_users': len(ids),
+        'last_update': status_cache.last_update_str(),
     })
 
 

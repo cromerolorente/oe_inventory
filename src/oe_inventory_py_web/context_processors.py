@@ -131,4 +131,5 @@ def mdi_status_counters(request):
         'anydesk_alerts': status.get('anydesk_alerts'),
         'video_rooms_alerts': status.get('video_rooms_alerts'),
         'online_users': len(ids),
+        'last_update': status_cache.last_update_str(),
     }

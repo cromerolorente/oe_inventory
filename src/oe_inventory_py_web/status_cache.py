@@ -210,6 +210,13 @@ def get_anydesk_status():
     return cache.get(ANYDESK_STATUS_KEY) or {}
 
 
+def last_update_str():
+    """Formatted 'dd-mm-YYYY HH:MM:SS' of the last counters refresh, or None."""
+    import datetime
+    ts = cache.get(TS_KEY)
+    return datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y %H:%M:%S') if ts else None
+
+
 def _refresh_locked():
     # Single-flight: only one refresh runs at a time. The lock also has a TTL so
     # a crashed compute can't block refreshes forever.
