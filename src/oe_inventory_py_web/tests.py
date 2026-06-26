@@ -2195,6 +2195,9 @@ class VideoRoomsScreenTests(TestCase):
         # Right panel: organizers no-show ranking (demo rows).
         self.assertContains(resp, 'Organizers ranking')
         self.assertContains(resp, 'Ana García')
+        # Room cards show the scheduled meeting's start–end time.
+        self.assertContains(resp, '09:00')
+        self.assertContains(resp, '10:00')
 
     def test_renders_rooms_when_configured(self):
         from unittest.mock import patch
@@ -2270,28 +2273,35 @@ class VideoRoomsScreenTests(TestCase):
         OeesMeetingRoom.objects.create(meet_id='4', org_email='bob@x.com', duration=60, occupied=5)
         ranking = _organizer_no_show_ranking()
         # ana first (2), resolved to her staff name; bob second (1), shown as email.
-        self.assertEqual(ranking[0], {'organizer': 'Ana García', 'count': 2})
-        self.assertEqual(ranking[1], {'organizer': 'bob@x.com', 'count': 1})
+        # Totals sum duration/occupied over the counted (occupied <= 10) meetings.
+        self.assertEqual(ranking[0], {'organizer': 'Ana García', 'count': 2,
+                                      'total_duration': 120, 'total_occupied': 10})
+        self.assertEqual(ranking[1], {'organizer': 'bob@x.com', 'count': 1,
+                                      'total_duration': 60, 'total_occupied': 5})
 
     def test_low_occupancy_meetings_filter_and_pct(self):
         import datetime
         from oe_inventory_py_web.models import OeesMeetingRoom
         from oe_inventory_py_web.views import _low_occupancy_meetings
         start = datetime.datetime(2026, 6, 24, 9, 0, tzinfo=datetime.timezone.utc)
+        end = datetime.datetime(2026, 6, 24, 10, 0, tzinfo=datetime.timezone.utc)
         OeesMeetingRoom.objects.create(meet_id='A', description='Low', org_email='a@x.com',
-                                       duration=60, occupied=12, start_time=start)   # 20% -> included
+                                       duration=60, occupied=12, start_time=start, end_time=end)  # 20%
         OeesMeetingRoom.objects.create(meet_id='B', description='Half', org_email='b@x.com',
-                                       duration=60, occupied=30, start_time=start)   # 50% -> included
+                                       duration=60, occupied=30, start_time=start)   # 50%, no end_time
         OeesMeetingRoom.objects.create(meet_id='C', description='High', org_email='c@x.com',
                                        duration=60, occupied=45, start_time=start)   # 75% -> excluded
         OeesMeetingRoom.objects.create(meet_id='D', description='NoDur', org_email='d@x.com',
                                        duration=0, occupied=0, start_time=start)     # duration 0 -> excluded
         rows = _low_occupancy_meetings()
-        titles = {r['title']: r['pct'] for r in rows}
-        self.assertEqual(set(titles), {'Low', 'Half'})
-        self.assertEqual(titles['Low'], 20)
-        self.assertEqual(titles['Half'], 50)
+        by_title = {r['title']: r for r in rows}
+        self.assertEqual(set(by_title), {'Low', 'Half'})
+        self.assertEqual(by_title['Low']['pct'], 20)
+        self.assertEqual(by_title['Half']['pct'], 50)
         self.assertEqual(rows[0]['date'], '24-06-2026')
+        self.assertEqual(by_title['Low']['end'], '10:00')   # end time when known
+        self.assertIsNone(by_title['Half']['end'])          # falls back to duration
+        self.assertEqual(by_title['Half']['duration'], 60)
 
     def test_booking_incidences_deactivated_and_unknown(self):
         from oe_inventory_py_web.models import OeesStaff

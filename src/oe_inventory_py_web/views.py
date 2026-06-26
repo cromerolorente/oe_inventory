@@ -3581,6 +3581,9 @@ def _low_occupancy_meetings():
         rows.append({
             'date': m.start_time.strftime('%d-%m-%Y') if m.start_time else '—',
             'time': m.start_time.strftime('%H:%M') if m.start_time else '—',
+            # End time when known; the template falls back to the duration if not.
+            'end': m.end_time.strftime('%H:%M') if m.end_time else None,
+            'duration': m.duration,
             'title': m.description or '—',
             'organizer': m.org_email or '—',
             'pct': round(m.occupied / m.duration * 100),
@@ -3592,12 +3595,15 @@ def _organizer_no_show_ranking():
     """Ranking of organizers by number of meetings that effectively didn't take
     place (occupied <= 10 minutes), most first. Organizer names are resolved from
     oees_staff by email; unknown emails are shown as-is."""
-    from django.db.models import Count
+    from django.db.models import Count, Sum
     from .models import OeesMeetingRoom
     agg = list(OeesMeetingRoom.objects
                .filter(occupied__lte=10)
                .exclude(org_email__isnull=True).exclude(org_email='')
-               .values('org_email').annotate(n=Count('id')).order_by('-n', 'org_email'))
+               .values('org_email')
+               .annotate(n=Count('id'),
+                         total_duration=Sum('duration'), total_occupied=Sum('occupied'))
+               .order_by('-n', 'org_email'))
     if not agg:
         return []
     name_by_email = {}
@@ -3611,34 +3617,38 @@ def _organizer_no_show_ranking():
     rows = []
     for a in agg:
         em = (a['org_email'] or '').strip()
-        rows.append({'organizer': name_by_email.get(em.lower()) or em or '—', 'count': a['n']})
+        rows.append({'organizer': name_by_email.get(em.lower()) or em or '—',
+                     'count': a['n'],
+                     'total_duration': a['total_duration'] or 0,
+                     'total_occupied': a['total_occupied'] or 0})
     return rows
 
 
 def _demo_no_show_ranking():
     """Sample organizer no-show ranking for the design preview (no real data yet)."""
     return [
-        {'organizer': 'Ana García', 'count': 7},
-        {'organizer': 'Luis Pérez', 'count': 5},
-        {'organizer': 'Marta Ruiz', 'count': 4},
-        {'organizer': 'Javier Soler', 'count': 2},
-        {'organizer': 'Carlos Méndez', 'count': 1},
+        {'organizer': 'Ana García', 'count': 7, 'total_duration': 420, 'total_occupied': 25},
+        {'organizer': 'Luis Pérez', 'count': 5, 'total_duration': 300, 'total_occupied': 15},
+        {'organizer': 'Marta Ruiz', 'count': 4, 'total_duration': 240, 'total_occupied': 20},
+        {'organizer': 'Javier Soler', 'count': 2, 'total_duration': 90, 'total_occupied': 5},
+        {'organizer': 'Carlos Méndez', 'count': 1, 'total_duration': 60, 'total_occupied': 0},
     ]
 
 
 def _demo_low_occupancy():
     """Sample low-occupancy meetings for the design preview (no real data yet)."""
+    # occupied & duration are multiples of 5 (5-minute sampling); pct = occ/dur.
     return [
-        {'date': '24-06-2026', 'time': '09:00', 'title': 'Comité de Dirección',
-         'organizer': 'ana.garcia@octopusenergy.es', 'pct': 20},
-        {'date': '24-06-2026', 'time': '11:30', 'title': 'Sprint Review',
-         'organizer': 'marta.ruiz@octopusenergy.es', 'pct': 33},
-        {'date': '24-06-2026', 'time': '13:00', 'title': '1:1 RRHH',
-         'organizer': 'former.employee@octopusenergy.es', 'pct': 10},
-        {'date': '25-06-2026', 'time': '10:00', 'title': 'Onboarding Q3',
-         'organizer': 'luis.perez@octopusenergy.es', 'pct': 50},
-        {'date': '25-06-2026', 'time': '16:00', 'title': 'Revisión Presupuesto',
-         'organizer': 'javier.soler@octopusenergy.es', 'pct': 40},
+        {'date': '24-06-2026', 'time': '09:00', 'end': '10:00', 'duration': 60,
+         'title': 'Comité de Dirección', 'organizer': 'ana.garcia@octopusenergy.es', 'pct': 25},
+        {'date': '24-06-2026', 'time': '11:30', 'end': '12:10', 'duration': 40,
+         'title': 'Sprint Review', 'organizer': 'marta.ruiz@octopusenergy.es', 'pct': 50},
+        {'date': '24-06-2026', 'time': '13:00', 'end': '13:20', 'duration': 20,
+         'title': '1:1 RRHH', 'organizer': 'former.employee@octopusenergy.es', 'pct': 25},
+        {'date': '25-06-2026', 'time': '10:00', 'end': '11:00', 'duration': 60,
+         'title': 'Onboarding Q3', 'organizer': 'luis.perez@octopusenergy.es', 'pct': 50},
+        {'date': '25-06-2026', 'time': '16:00', 'end': '16:50', 'duration': 50,
+         'title': 'Revisión Presupuesto', 'organizer': 'javier.soler@octopusenergy.es', 'pct': 40},
     ]
 
 

@@ -122,28 +122,33 @@ def future_bookings():
 def demo_rooms():
     """Sample rooms (same shape as rooms_overview) shown when the integration
     isn't configured yet, so the screen design can be worked on meanwhile."""
-    def room(name, occupied, in_meeting, occupancy, model, status, organizer='', title=''):
+    def _hm(h, m=0):
+        return datetime.datetime(2026, 6, 26, h, m)
+
+    def room(name, occupied, in_meeting, occupancy, model, status, organizer='', title='',
+             start=None, end=None):
         connected = status == 'connected'
         return {
             'id': 'demo-' + name, 'name': name,
             'occupied': occupied, 'in_meeting': in_meeting, 'occupancy': occupancy,
             'connected': connected,
             'organizer': organizer, 'title': title,
+            'start_time': start, 'end_time': end,
             'alert': _is_occupied_but_empty(occupied, in_meeting, occupancy) or not connected,
             'devices': [{'model': model, 'firmware': 'CollabOS 1.12.x', 'status': status}],
         }
     return [
         room('Sala de Juntas', True, True, 6, 'Rally Bar', 'connected',
-             organizer='Ana García', title='Comité de Dirección'),
+             organizer='Ana García', title='Comité de Dirección', start=_hm(9), end=_hm(10)),
         room('Sala Picasso', True, True, 3, 'Rally Bar Mini', 'connected',
-             organizer='Marta Ruiz', title='Sprint Review'),
+             organizer='Marta Ruiz', title='Sprint Review', start=_hm(11, 30), end=_hm(12)),
         room('Sala Dalí', True, False, 2, 'Rally Bar Mini', 'connected'),
         room('Sala Sorolla', True, True, 4, 'Rally Bar', 'connected',
-             organizer='Javier Soler', title='Demo Cliente'),
+             organizer='Javier Soler', title='Demo Cliente', start=_hm(13), end=_hm(14)),
         room('Sala Miró', False, False, 0, 'Rally Bar Mini', 'connected'),
         # Occupied / in meeting but nobody detected -> alert.
         room('Sala Formación', True, True, 0, 'Rally Bar', 'connected',
-             organizer='Luis Pérez', title='Onboarding Q3'),
+             organizer='Luis Pérez', title='Onboarding Q3', start=_hm(16), end=_hm(17)),
         room('Sala Goya', False, False, 0, 'Rally Bar Mini', 'disconnected'),
     ]
 
