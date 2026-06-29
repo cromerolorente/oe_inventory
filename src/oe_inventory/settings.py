@@ -197,7 +197,18 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Spain time. TIME_ZONE makes Django display timezone-aware datetimes (ORM,
+# template filters) in Madrid; setting the process TZ below makes the naive
+# datetime.now()/fromtimestamp calls (notes, history, footer "Updated") use
+# Madrid too, regardless of the server's OS timezone (AWS runs in UTC).
+TIME_ZONE = 'Europe/Madrid'
+
+import time as _time
+os.environ['TZ'] = TIME_ZONE
+try:
+    _time.tzset()  # Unix only (Linux/macOS); applies TZ to the process clock
+except AttributeError:
+    pass
 
 USE_I18N = True
 

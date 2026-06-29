@@ -53,8 +53,11 @@ We've written it to be easy: plain language, no unnecessary jargon, and a pictur
    - [Delegations](#71-delegations)
    - [Users](#72-users)
    - [Change my password](#73-change-my-password)
-- [Appendix A: Screenshot guide](#appendix-a-screenshot-guide)
-- [Appendix B: Glossary](#appendix-b-glossary)
+8. [Monitoring (network, remote machines and rooms)](#8-monitoring-network-remote-machines-and-rooms)
+   - [Net Overview (Zyxel Nebula)](#81-net-overview-zyxel-nebula)
+   - [Remote Machines (AnyDesk)](#82-remote-machines-anydesk)
+   - [Video Rooms (Logitech Sync)](#83-video-rooms-logitech-sync)
+- [Appendix A: Glossary](#appendix-a-glossary)
 
 ---
 
@@ -173,17 +176,25 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 - **Docs** — the person's PDF documents (upload, list and preview).
 - **List** — a list of all staff, with *People* (total) and *Actives* (active) counters.
 
-**Fields (General):**
-- **ID** (search by name with **Find**), **Name** (required), **Department** (with autocomplete), **Company**, **Delegation**, **eMail**, **Incorporation date**, **Termination date** (filled in automatically on offboarding), **Natural Person** (tick if a physical person) and **Notes** (read-only history).
+**Fields (General), one by one:**
+- **ID** — internal identifier; **read-only**, filled in when you search. You don't type it.
+- **Name** — the person's name. **Required**; it's what you search by (with **Find**) and what shows as "assigned to" on assets.
+- **Department** — department; field with **autocomplete** over existing values (you can type a new one). Part of the **scope** seen by users with limited permissions.
+- **Company** / **Delegation** — the company and site the person belongs to; also limit the scope.
+- **eMail** — the person's email. As well as informative, it is the **join key** with other screens (e.g. the meeting organizer in *Video Rooms* is matched by this email).
+- **Incorporation date** — start date.
+- **Termination date** — offboarding date; **not edited by hand**, it's filled automatically by **Terminate**.
+- **Natural Person** — ticks whether this is a **physical person** (not a role or resource). **Important limitation:** the *Assign*/*Unassign*/*Terminate* documents are generated **only for physical persons**.
+- **Notes** — **automatic history** (creation, assignments, offboarding…). **Read-only**: it fills itself with each action, you don't write it.
 
-**What you can do:**
-- **Save** — save/create the person.
-- **Clear** — clear the form.
-- **Generate document** — generate a PDF with the inventory assigned to that person.
-- **Send Email** — send that report by email to the People department.
-- **Release** — unassign an item selected in the table and return it to stock. For physical persons, it automatically generates an *Unassign* document.
-- **Terminate** — opens a window to mark which items the person returns; generates a *Terminate* PDF and marks the contract as ended (termination date + inactive state).
-- **Export to Excel** — export the assigned items.
+**What you can do (and its limits):**
+- **Save** — saves/creates the person. Requires at least the **Name**.
+- **Clear** — empties the form (deletes nothing from the database).
+- **Generate document** — generates a PDF with the assigned inventory. **Physical persons only.**
+- **Send Email** — sends that report to the People department via **Resend**. **Limitation:** it needs Resend configured and the sender's domain verified; otherwise the send fails (logged).
+- **Release** — unassigns the item **selected in the table** and returns it to stock; for physical persons it generates an *Unassign* document. You must select a row first.
+- **Terminate** — opens a window to tick which items the person **returns**; generates a *Terminate* PDF, returns those items to stock and marks the contract as ended (fills *Termination date* and sets the state to inactive). A **hard-to-undo** action: use it when closing the contract.
+- **Export to Excel** — exports that person's assigned-items table.
 
 ![Terminate window](images/11-staff-terminate-modal.png)
 *On offboarding, tick the returned items; the selected ones go back to stock.*
@@ -217,13 +228,21 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 4. In **Phones**, type or pick the serial number (field with autocomplete) and search.
 5. Press **Assign** in each block to assign that item to the person.
 
-**What you can do:**
-- **Assign** — assigns the selected item to the person.
-- **Generate document** — generates a single assignment PDF with everything given to that person (physical persons only).
+**Fields and filters, one by one:**
+- **Person** — dropdown of **active staff** (offboarded people don't appear). You must pick a person before assigning.
+- **Devices → Type / Brand** — filters to narrow the search for free devices; after **Search** the dropdown of **available serial numbers** is filled.
+- **Licenses → Type** — analogous filter for free licences.
+- **Phones → serial number** — field with **autocomplete** over phones in stock.
 
-**Handy details:**
-- Only **unassigned** assets (in stock) are offered.
-- If you assign items and leave without pressing *Generate document*, the app generates the assignment document automatically anyway (one per person), so the audit trail is never missing.
+**What you can do (and its limits):**
+- **Search** (in each block) — finds **available** assets matching the filter.
+- **Assign** — assigns the item selected in that block to the person. You must have chosen a person **and** a serial number.
+- **Generate document** — generates a single assignment PDF with everything given to that person. **Physical persons only.**
+
+**Details and limitations:**
+- Only **unassigned** assets (in stock) are offered; an already-assigned item won't appear until it's released.
+- You can arrive here with the **person preselected** from their Staff record.
+- If you assign items and leave **without** pressing *Generate document*, the app generates the assignment document automatically anyway (one per person), so the audit trail is never missing.
 
 ---
 
@@ -238,14 +257,22 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 **How it's laid out:** a form on the left and, on the right, three lists: **Pending**, **Discarded** and **Incorporated**.
 
-**Fields:** Name, Company, Department, Delegation, Date, Address (for remote), laptop type (None / WIN / MBA / MBP), headset type (None / Corded / Cordless) and equipment checkboxes (Phone, USB-C HUB, Screen, PDF, Mouse, ACAD, Keyboard, Discarded).
+**Fields, one by one:**
+- **Name** — name of the joiner.
+- **Company / Department / Delegation** — destination of the incorporation; **Delegation** matters because the **REMOTE** value enables the courier-shipping flow.
+- **Date** — expected start date.
+- **Address** — shipping address; **applies to remote joiners only** (when the kit must be sent to their home).
+- **Laptop type** — None / **WIN** (Windows) / **MBA** (MacBook Air) / **MBP** (MacBook Pro).
+- **Headset type** — None / **Corded** / **Cordless**.
+- **Equipment checkboxes** — Phone, USB-C HUB, Screen, PDF, Mouse, ACAD, Keyboard. Tick what the person needs; these feed the **needs** shown in *Availability*.
+- **Discarded** — marks the request as **discarded** (moves to that tab; nothing is deleted).
 
-**What you can do:**
-- **Save** — save the request.
-- **Clear** — clear.
-- **Send devices** — (REMOTE delegation only) record the shipment, indicating the courier agency.
-- **Receive devices** — record receipt of the material.
-- **Complete incorporation** — create the **Staff** record from this data and mark the incorporation as completed.
+**What you can do (and its limits):**
+- **Save** — saves the request (stays in *Pending*).
+- **Clear** — clears the form.
+- **Send devices** — **only if the delegation is REMOTE**: records the shipment, indicating the courier agency.
+- **Receive devices** — records receipt of the material.
+- **Complete incorporation** — creates the **Staff** record from this data and marks the incorporation as *Incorporated*. It's the final onboarding step; once done, the person exists in *Staff*.
 
 **The table:** Name · Company · Department · Delegation · Date and the equipment checkboxes (WIN, MBA, MBP, Phone, Screen, Mouse, Keyboard, headsets, USB-C, PDF, ACAD) plus Send/Receive.
 
@@ -264,14 +291,28 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 **How it's laid out:** form on the left, **totals** and notes panel on the right, and the inventory **table** below.
 
-**Fields:** Serial Number, Company, Type (autocomplete), Brand, Model, Screen Size, HD Size, Memory, *Have mobile SIM?*, IMEI, PIN/PUK, Origin, Insert Date, Bill Number, Obs, Value (€), *Assigned to* (read-only) and the history.
+**Fields, one by one:**
+- **Serial Number** — serial number; the device's **key** (you search and save by it). Required.
+- **Company** — owning company. **Required to save** (the column can't be empty); if you don't pick a company, the save is rejected.
+- **Type** — device type (LAPTOP, IPAD…); with **autocomplete** over existing types.
+- **Brand / Model** — make and model.
+- **Screen Size / HD Size / Memory** — hardware specs.
+- **Have mobile SIM?** — a 0/1 checkbox marking whether the device **carries a SIM** (just a flag, it does **not** link to the mobile-lines table).
+- **IMEI / PIN-PUK** — SIM data if it has one.
+- **Origin** — provenance (purchase, transfer…).
+- **Insert Date** — registration date.
+- **Bill Number** — invoice number (feeds *Distribution Invoices*).
+- **Obs** — free-text notes. **Important:** it's loaded when you search the device; if you save with this field empty, **you leave it empty**.
+- **Value (€)** — device value (adds to the totals and the portfolio value).
+- **Assigned to** — assigned person; **read-only** (assignment is done in *Allocations*/*Staff*).
+- **History (Notes)** — automatic action log; **read-only**. Each **Save** adds an "Updated/Created by <user>" line.
 
-**What you can do:**
-- **Search** — search by serial number.
-- **Save** — save/update.
-- **Support** — send the device to, or receive it from, the technical service (works as a toggle).
-- **Clear** — clear.
-- **Export to Excel** — export the inventory.
+**What you can do (and its limits):**
+- **Search** — searches by serial number and fills the record.
+- **Save** — saves/updates. Requires **Serial Number** and **Company**; logs the action in the history.
+- **Support** — sends the device to / receives it from the technical service (works as a **toggle**: if it's out, it receives it asking for the cost; if it's in, it sends it asking for the destination).
+- **Clear** — clears the form (including Obs).
+- **Export to Excel** — exports the full inventory.
 
 **The table:** Serial Number · Type · Brand · Model · Screen · HD · Memory · IMEI · Mobile · PIN/PUK · Origin · Date · Bill Nº · Assigned To · Value (€).
 
@@ -293,9 +334,22 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 **How it's laid out:** form on the left, **by-type licence summary** in the middle and **totals** + notes on the right. The licence table is below.
 
-**Fields:** Serial Number, Company, Type (autocomplete), Origin (autocomplete), Insert Date, Value (€), Obs, Bill Number and *Assigned to* (read-only).
+**Fields, one by one:**
+- **Serial Number** — the licence's key/identifier (serial number or product key). You search by it.
+- **Company** — owning company.
+- **Type** — licence type (with **autocomplete**); this is what the central summary groups by.
+- **Origin** — provenance (with autocomplete).
+- **Insert Date** — purchase/registration date.
+- **Value (€)** — licence cost.
+- **Obs** — notes.
+- **Bill Number** — invoice number.
+- **Assigned to** — person/resource it's assigned to; **read-only**. A licence assigned to the special person **"LICENCIAS CADUCADAS"** counts as **expired**.
 
-**What you can do:** **Find**, **Save**, **Clear** and **Export to Excel**.
+**What you can do (and its limits):**
+- **Find** — searches by serial number.
+- **Save** — saves/updates the licence.
+- **Clear** — clears the form.
+- **Export to Excel** — exports the list.
 
 **The table:** Serial Number · Company · Type · Origin · Insert Date · Person · Obs · Value (€) · Bill Number.
 
@@ -314,13 +368,29 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 ![Phones screen](images/07-phones.png)
 *Phone record, totals and inventory.*
 
-**Fields:** Serial Number, Company, Brand, Model, Origin (autocomplete), Insert Date, Value (€), IMEI, Obs, Bill Number, *Number* (associated line, read-only) and *Assigned to* (read-only).
+**Fields, one by one:**
+- **Serial Number** — the phone's key (you search by it). Required.
+- **Company** — owning company.
+- **Brand / Model** — make and model.
+- **Origin** — provenance (with autocomplete).
+- **Insert Date** — registration date.
+- **Value (€)** — phone value.
+- **IMEI** — handset identifier.
+- **Obs** — notes.
+- **Bill Number** — invoice number.
+- **Number** — the associated **line** number; **read-only** (the SIM is linked from *Mobile Lines*).
+- **Assigned to** — assigned person; **read-only** (assigned from *Allocations*/*Staff*).
 
-**What you can do:** **Find**, **Save**, **Clear**, **Support** (send/receive from technical service), **Release** (unassign from the person) and **Export to Excel**.
+**What you can do (and its limits):**
+- **Find** — searches by serial number.
+- **Save** — saves/updates.
+- **Support** — send/receive from the technical service (toggle, as in Devices).
+- **Release** — unassigns the phone from the person. For physical persons it generates an *Unassign* document.
+- **Export to Excel** — exports the inventory.
 
 **The table:** Serial Number · Company · Brand · Model · Origin · Date · Person · Number · IMEI · Obs · Value (€) · Bill Number.
 
-**Handy details:** if the phone is under repair, a red warning appears at the top. When you release a phone from a physical person, an *Unassign* document is generated automatically.
+**Details and limitations:** if the phone is under repair, a **red warning** appears at the top. To **assign it a SIM** go to *Mobile Lines* (which only offers phones **without** a SIM).
 
 ---
 
@@ -335,15 +405,28 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 **How it's laid out:** the line form on the left; on the right, the **assignment panel** (changes for a normal SIM, **eSIM** or **M2M**), a **card summary** (in use / free / cancelled / total) and the notes. The table is below.
 
-**Fields:** Number, Company, Insert Date, Origin (autocomplete), PIN, PIN2, PUK, PUK2, CARD (IMEI), Extension, Obs, **eSIM** and **M2M** checkboxes, *Person* and *Device SN* (read-only).
+**Fields, one by one:**
+- **Number** — the line's phone number; the **key** (you search by it).
+- **Company** — holder company.
+- **Insert Date** — registration date.
+- **Origin** — carrier/provenance (with autocomplete).
+- **PIN / PIN2 / PUK / PUK2** — SIM codes.
+- **CARD (IMEI)** — SIM card identifier.
+- **Extension** — associated extension, if any.
+- **Obs** — notes.
+- **eSIM** — checkbox: the line is an **eSIM** (assigned to a **person**, not a physical phone).
+- **M2M** — checkbox: **machine-to-machine** line (assigned to a **device**).
+- **Person** / **Device SN** — what it's linked to; **read-only**.
 
-**What you can do:**
-- **Save**, **Clear**, **Release** (unassign) and **Cancel line** (cancel it with the provider).
-- Assign by type: a **SIM** to a phone in stock, an **eSIM** to a person or an **M2M** line to a device.
+**What you can do (and its limits):**
+- **Save** / **Clear** — save/clear.
+- **Release** — unassigns the line from its phone/person/device (frees it).
+- **Cancel line** — **cancels** the line with the provider (marks it *Cancelled*). Use it when closing the contract.
+- **Assign by type:** a **normal SIM** to a **phone without a SIM** (the dropdown only offers phones that don't already have a line), an **eSIM** to a **person**, or an **M2M** line to a **device**.
 
 **The table:** Number · Company · Origin · PIN · PUK · PIN2 · PUK2 · IMEI · Date · Mobile · Person · Ext · eSIM · M2M · Cancelled · Obs.
 
-**Handy details:** ticking **eSIM** or **M2M** changes the assignment panel to offer the right option. If the line is cancelled, you'll see a warning.
+**Details and limitations:** ticking **eSIM** or **M2M** **changes the assignment panel** to offer the right option. The **card summary** (in use / free / cancelled / total) updates with each change. If the line is cancelled, you'll see a warning.
 
 ---
 
@@ -358,12 +441,24 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 **How it's laid out (two tabs):** **General** (form + incidents) and **List** (list of all lines).
 
-**Fields (General):** ID, Description, Provider (autocomplete), Delegation, Order, Service Code, Access, Router, Addressing, WIFI 1, WIFI 2, Start Date, Down Date, Fixed IP, **Active** checkbox and the audit log.
+**Fields (General), one by one:**
+- **ID** — internal identifier; read-only.
+- **Description** — the line's name/description (identifies it in the listings).
+- **Provider** — provider (with autocomplete).
+- **Delegation** — site it serves.
+- **Order / Service Code** — the carrier's order number and service code.
+- **Access / Router / Addressing** — technical data for the access, router and addressing.
+- **WIFI 1 / WIFI 2** — SSID/credentials of the WiFi networks.
+- **Start Date / Down Date** — service start and end.
+- **Fixed IP** — fixed IP, if any.
+- **Active** — active/inactive state checkbox.
+- **Audit log** — automatic history; read-only.
 
-**What you can do:**
-- **Save**, **Clear** and **Add incidence** (opens the panel to log an incident: Working Order, dates and open/close descriptions).
-- **Save Incidence** / **Close** within the incident panel.
-- Export to Excel both the **lines** and the **incidents** of a line.
+**What you can do (and its limits):**
+- **Save** / **Clear** — save/clear the line.
+- **Add incidence** — opens the panel to log an **incident** (Working Order, dates and open/close descriptions).
+- **Save Incidence** / **Close** — save or close the incident from its panel.
+- **Export to Excel** — both the **lines** and the **incidents** of a line.
 
 **The table (List):** ID · Description · Provider · Delegation · Order · Service Code · Access · Router · Addressing · WIFI1 · WIFI2 · Active · Start Date · Down Date · Fixed IP.
 
@@ -380,7 +475,17 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 
 **How it's laid out (two tabs):** **General** (form + notes) and **List** (listing).
 
-**Fields:** Serial Number, Description, Provider (autocomplete), Delegation, MPS, Fixed IP, Start Date, End Date, Monthly fee (€), User, Password and notes.
+**Fields, one by one:**
+- **Serial Number** — the printer's serial number (key).
+- **Description** — description/model.
+- **Provider** — contract provider (with autocomplete).
+- **Delegation** — site where it's installed.
+- **MPS** — whether it's under a Managed Print Services contract.
+- **Fixed IP** — the printer's IP on the network.
+- **Start Date / End Date** — contract start and end.
+- **Monthly fee (€)** — monthly fee.
+- **User / Password** — credentials to access the printer's panel.
+- **Notes** — observations/history.
 
 **What you can do:** **Save**, **Clear** and **Export to Excel** (on the List tab).
 
@@ -399,12 +504,18 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 ![Access Cards screen](images/17-access-cards.png)
 *Card record and the list below.*
 
-**Fields:** Card, Fermax MIF, **PIN** (read-only), Staff (active employees), State (card state) and Obs.
+**Fields, one by one:**
+- **Card** — the card's code/identifier (key).
+- **Fermax MIF** — the MIFARE code from the Fermax system.
+- **PIN** — PIN code; **read-only** (assigned via *Generate PIN*).
+- **Staff** — the employee it belongs to; only **active employees** are offered.
+- **State** — card state (e.g. PENDING, ACTIVATED, LOST…).
+- **Obs** — notes.
 
-**What you can do:**
+**What you can do (and its limits):**
 - **Save** — save/update.
 - **Clear** — clear.
-- **Generate PIN** — assigns a **random PIN** from the available pool. When you save the card, that PIN **is consumed** (it stops being available for others).
+- **Generate PIN** — assigns a **random PIN** from the available pool. **Limitation:** when you save the card that PIN **is consumed** (it stops being available for others).
 - **Convert to Visitor Card** — convert the current card into a visitor card.
 
 **The table:** ID · Card · Fermax MIF · PIN · Staff · State · Obs.
@@ -422,9 +533,14 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 ![Visitors Access Cards screen](images/18-visitor-cards.png)
 *Visitor record, list and the card history.*
 
-**Fields:** Card Code, Fermax MIF, User (visitor name), State and Observations.
+**Fields, one by one:**
+- **Card Code** — the card's code (key).
+- **Fermax MIF** — the MIFARE code from the Fermax system.
+- **User** — the **visitor's** name (free text — not a system employee).
+- **State** — card state.
+- **Observations** — notes.
 
-**What you can do:** **Save** and **Clear**, plus export.
+**What you can do:** **Save** and **Clear**, plus export. (Visitor cards have **no PIN and no fixed employee**.)
 
 **The tables:** a card list (ID · Card · Fermax MIF · User · State · Obs) and, below it, the **history** of the selected card.
 
@@ -441,7 +557,13 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 ![Access Keys screen](images/19-access-keys.png)
 *Key record and listing.*
 
-**Fields:** Key ID, Company, Type (autocomplete), Staff (responsible), Insert Date and notes.
+**Fields, one by one:**
+- **Key ID** — the key's identifier (key).
+- **Company** — owning company.
+- **Type** — key type (with autocomplete).
+- **Staff** — the employee **responsible** for the key.
+- **Insert Date** — date added.
+- **Notes** — observations.
 
 **What you can do:** **Save** and **Clear**.
 
@@ -460,14 +582,21 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 ![Orders screen](images/22-orders.png)
 *Order form and the Pending / Canceled / Received tabs.*
 
-**Fields:** ID (search), Article, Uds (units), Date and the history (Notes).
+**Fields, one by one:**
+- **ID** — the order identifier; used to search.
+- **Article** — description of the ordered item (**free text**).
+- **Uds** — number of **units**.
+- **Date** — order date.
+- **History (Notes)** — order log.
 
-**What you can do:**
-- **Save** — save/update (Article, Uds and Date are required).
+**What you can do (and its limits):**
+- **Save** — save/update (**Article, Uds and Date are required**).
 - **Clear** — clear.
-- **Cancel** — cancel the order (if not already processed).
-- **Process** — mark as processed.
-- **Receive** — mark as received (it must be processed first).
+- **Cancel** — cancel the order (only if **not already processed**).
+- **Process** — mark as **processed** (sent to the supplier).
+- **Receive** — mark as **received** (the order must be **processed** first).
+
+**Limitation (worth noting):** because **Article** is free text, its match against the *Availability* screen (the *Orders* column) is done by text and may miss the category. The plan is to replace this field with a **controlled dropdown** so the count is exact.
 
 **The tabs:** **Pending**, **Canceled** and **Received**. Each one has its export button.
 
@@ -488,10 +617,12 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 - **Article** — article type (e.g. LAPTOP WIN, PHONE, KEYBOARD).
 - **Stock** — available units (unassigned).
 - **Needs** — pending needs (incorporations not yet completed).
-- **Orders** — units in pending orders.
+- **Orders** — units in **pending orders** (what's on the way).
 - **Disp** — net availability (**Stock − Needs + Orders**). **Green** if positive, **red** if negative.
 
 **What you can do:** **Export to Excel**.
+
+**Limitation (worth noting):** the **Orders** column is computed by matching the free-text *Article* field of orders against each article type, so the count may be inexact if the order's description doesn't match. The plan is to control that field with a **dropdown** (see *Orders*, §6.1).
 
 ---
 
@@ -550,9 +681,19 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 ![Delegations screen](images/20-delegations.png)
 *Form and listing on the left; map of Spain with the pins on the right.*
 
-**Fields:** Code, Delegation (name, required), Address, Post Code, Town, Province and notes.
+**Fields, one by one:**
+- **Code** — the delegation's code (key).
+- **Delegation** — the site's name. **Required.**
+- **Address** — postal address; this is what's used to **geolocate**.
+- **Post Code** — postcode.
+- **Town** — town/city.
+- **Province** — province (dropdown from the master provinces table).
+- **Notes** — observations.
 
-**What you can do:** **Save** (on saving, the app tries to **geolocate** the address), **Clear** and **Geolocate** (manual geolocation of an already-saved delegation).
+**What you can do (and its limits):**
+- **Save** — save/update; on saving, the app **tries to geolocate** the address automatically. **Limitation:** if the address is imprecise the pin may not be placed; use *Geolocate* in that case.
+- **Clear** — clear.
+- **Geolocate** — **manual** geolocation of an already-saved delegation.
 
 **The table:** ID · Delegation · Address · Post Code · Town · Province.
 
@@ -604,6 +745,74 @@ So we don't repeat it in every section, these ideas apply to almost every screen
 **New-password rules:** at least 8 characters, can't be all numbers or too common, and both entries must match.
 
 **Handy details:** after the change you don't have to sign in again; the app keeps your session open.
+
+---
+
+## 8. Monitoring (network, remote machines and rooms)
+
+> Every screen in this section is **near-real-time monitoring** and is restricted to users with the **`net_overview`** permission (Omada also uses the `omada` permission). The data is computed by a **background process every 5 minutes** and cached, so the screen and the status bar respond instantly without waiting on the external APIs. The time of the last refresh is shown in the footer ("Updated").
+
+<a id="net-overview"></a>
+
+### 8.1 Net Overview (Zyxel Nebula)
+
+**What it is for:** see at a glance the network status of **all managed sites** in the **Zyxel Nebula** cloud: switches, access points, firewalls, WAN links, connected clients and alarms.
+
+**Layout:** on entry a **"Recovering information…" spinner** shows while the data loads over AJAX; then **one card per site** appears. Each card has a header (site name + OK/alerts state + **Topology** button) and several panels.
+
+**Per-site panels:**
+- **WAN** — two figures: **enabled** (configured/enabled WAN interfaces) and **operational** (with a live physical link).
+- **Firewalls / Switches / Access Points** — total, **online** (green), **offline** (red) and, when present, an orange **"outdated"** counter (devices with out-of-date firmware).
+- **Clients** — clients connected **right now**, split into **WiFi** and **wired**.
+- **Alerts** — the site's incident count; when there are any, the card is **clickable** and opens a popup with the detail (offline and/or outdated-firmware devices).
+
+**What you can do:**
+- **Topology** (per-site button) — opens a **map** in a modal (Firewalls → Switches → Access Points) showing each device's status and the clients connected now; firewalls also show **CPU** and **Memory** (green <50 %, orange 50–80 %, red >80 %).
+- **Click the Alerts panel** — see the list of devices with problems.
+
+**Features and alarms:** a site's **alarms** are the sum of **offline devices** + **devices with outdated firmware** (counted separately: a device that is both offline and outdated counts as 2). A firewall over **80 % CPU or memory** also counts as an alarm. The total across all sites appears in the footer as **"Net Alerts"** (red) and refreshes every 5 minutes.
+
+**Limitations (important):**
+- The WAN **operational** figure usually shows **"—"**: the Nebula API **does not expose interface status** for the Zyxel firewalls (FLEX 700H / ATP), as confirmed by Zyxel support. Obtaining it would require querying the firewall over **SNMP** from the site network.
+- The **topology map** links are shown **by tier**, not port-to-port (the API exposes neither the real map nor LLDP neighbour data).
+- It requires the `NEBULA_*` credentials configured on the server; if missing, the screen shows a "not configured" notice.
+
+> **Coming soon:** the **TP-Link Omada** controller data will be integrated into this same screen. Loading will happen in **two passes**: first the Nebula data (as now) and then the Omada data into the same form.
+
+---
+
+<a id="remote-machines"></a>
+
+### 8.2 Remote Machines (AnyDesk)
+
+**What it is for:** tell whether the **remote machines** (site mini-PCs) are **reachable**, based on the `oees_anydesk` table and the **AnyDesk REST API**.
+
+**Layout:** **one card per machine** with a computer icon, **description**, its **AnyDesk code**, the **last connection** (`last_connection`) and a **green/red dot** depending on reachability.
+
+**Features:** the background process scans the machines every 5 minutes; when a machine is reachable it **stamps the date/time** in `last_connection`. The number of **unreachable** machines is shown in the footer as **"Remote Machines Alerts"** (red, `net_overview` only); when there are none, it is hidden.
+
+**Limitations:** it needs an active, **registered AnyDesk licence** and its credentials (`ANYDESK_API_LICENSE` / `ANYDESK_API_KEY`). While the API does not respond (e.g. an unregistered licence), the screen uses a **provisional mode**: it treats machines without a `last_connection` as "unreachable", so the design and the footer badge stay useful.
+
+---
+
+<a id="video-rooms"></a>
+
+### 8.3 Video Rooms (Logitech Sync)
+
+**What it is for:** monitor the state of the **videoconference rooms** fitted with **Logitech Rally Bar / Bar Mini** using Logitech's **Sync Cloud API**, and surface problematic bookings.
+
+**Layout:** a **two-column** screen. On the **left (2/3)**, **one card per room**. On the **right (1/3)**, **three analysis tables**.
+
+**Each room card:** name, **state** (🔴 *In meeting* / 🟡 *Occupied* / 🟢 *Free*), number of **occupants**, the scheduled meeting's **start–end time**, **title** and **organizer**, and the device's **model/firmware/status**, with a **green/red dot** (connected/disconnected). If the room is **occupied with no people** or **disconnected**, the card is highlighted in red with the reason.
+
+**Right-hand tables:**
+1. **Future-booking incidences** — future bookings whose **organizer is deactivated** ("User X, deactivated since dd-mm-yyyy, has N future bookings") or whose **email is not found** in the staff table ("The email … is not found in the users table").
+2. **Under-used meetings (occupancy ≤ 50 %)** — meetings whose effective occupancy was ≤ 50 % of their duration: **Date · Start · End · Title · Organizer · % Occ.** (when the end time is unknown, the duration is shown instead).
+3. **Organizers ranking — meetings not held (occ. ≤ 10 min)** — organizers with the most barely-held meetings: **Organizer · Total Duration · Total Occupied · Meetings**.
+
+**Features and alarms:** the background process records each meeting in the `oees_meeting_room` table: `duration` is the **initial reserved length** (fixed) and `occupied` **adds 5 minutes** on each cycle while the room is occupied (hence values are multiples of 5). The number of rooms **occupied-but-empty or disconnected** appears in the footer as **"Video Rooms Alerts"** (red, `net_overview` only).
+
+**Limitations:** it requires a **Logitech licence** and a **client certificate + key (mTLS)** on the server. Until they are configured the screen shows **sample data** with a **"Sample data"** notice (so the design can be worked on) and **writes nothing** to `oees_meeting_room`. Some meeting fields (organizer, title, start/end time) depend on the live API providing them.
 
 ---
 

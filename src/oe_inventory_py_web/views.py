@@ -3572,17 +3572,24 @@ def _low_occupancy_meetings():
     """Meetings whose effective occupancy was <= 50% of their duration, from
     oees_meeting_room. Each row: date, start time, title, organizer, % occupied."""
     from django.db.models import F
+    from django.utils import timezone
     from .models import OeesMeetingRoom
+
+    def _local(dt):
+        # DB datetimes are stored in UTC; show them in the active timezone (Madrid).
+        return timezone.localtime(dt) if dt and timezone.is_aware(dt) else dt
+
     rows = []
     qs = (OeesMeetingRoom.objects
           .filter(duration__gt=0, occupied__lte=F('duration') / 2.0)
           .order_by('start_time'))
     for m in qs:
+        start, end = _local(m.start_time), _local(m.end_time)
         rows.append({
-            'date': m.start_time.strftime('%d-%m-%Y') if m.start_time else '—',
-            'time': m.start_time.strftime('%H:%M') if m.start_time else '—',
+            'date': start.strftime('%d-%m-%Y') if start else '—',
+            'time': start.strftime('%H:%M') if start else '—',
             # End time when known; the template falls back to the duration if not.
-            'end': m.end_time.strftime('%H:%M') if m.end_time else None,
+            'end': end.strftime('%H:%M') if end else None,
             'duration': m.duration,
             'title': m.description or '—',
             'organizer': m.org_email or '—',

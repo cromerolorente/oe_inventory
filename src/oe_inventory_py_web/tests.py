@@ -2299,7 +2299,8 @@ class VideoRoomsScreenTests(TestCase):
         self.assertEqual(by_title['Low']['pct'], 20)
         self.assertEqual(by_title['Half']['pct'], 50)
         self.assertEqual(rows[0]['date'], '24-06-2026')
-        self.assertEqual(by_title['Low']['end'], '10:00')   # end time when known
+        # 10:00 UTC shown in Madrid time (CEST, +2 in June) -> 12:00.
+        self.assertEqual(by_title['Low']['end'], '12:00')   # end time when known
         self.assertIsNone(by_title['Half']['end'])          # falls back to duration
         self.assertEqual(by_title['Half']['duration'], 60)
 
