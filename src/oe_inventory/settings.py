@@ -338,10 +338,18 @@ NEBULA_API_KEY = os.environ.get('NEBULA_API_KEY', '')
 NEBULA_ORG_ID = os.environ.get('NEBULA_ORG_ID', '')
 NEBULA_VERIFY_SSL = os.environ.get('NEBULA_VERIFY_SSL', 'True') == 'True'
 
-# AnyDesk REST API (my.anydesk management console, v1). Used to check whether the
-# remote machines in oees_anydesk are online. Auth is an HMAC token built from the
-# license id and API key (requested from AnyDesk support). Secrets via env only.
-ANYDESK_API_URL = os.environ.get('ANYDESK_API_URL', 'https://v1.api.anydesk.com:8081/')
+# AnyDesk REST API (my.anydesk II, API v2). Used to check whether the remote
+# machines in oees_anydesk are online. Auth is a single static token sent in the
+# 'X-Api-Token' header (the "API password" generated in the my.anydesk II
+# console). Endpoints live under https://my.anydesk.com/api/v2/. Secrets via env
+# only. NOTE: my.anydesk.com sits behind Cloudflare's managed challenge, which
+# blocks non-browser clients from some IPs — validate from the server's IP.
+ANYDESK_API_URL = os.environ.get('ANYDESK_API_URL', 'https://my.anydesk.com')
+# Token for v2 (X-Api-Token). Fall back to the legacy ANYDESK_API_KEY so an
+# existing .env keeps working without renaming the variable.
+ANYDESK_API_TOKEN = os.environ.get('ANYDESK_API_TOKEN', '') or os.environ.get('ANYDESK_API_KEY', '')
+# Legacy v1 credentials (HMAC). No longer used by the v2 client; kept so old
+# .env files don't break and for reference.
 ANYDESK_API_LICENSE = os.environ.get('ANYDESK_API_LICENSE', '')
 ANYDESK_API_KEY = os.environ.get('ANYDESK_API_KEY', '')
 # AnyDesk uses a valid public cert; keep verification on in production. Set to
@@ -370,5 +378,5 @@ if 'test' in sys.argv:
     MDI_STATUS_REFRESH_IN_BACKGROUND = False
     OMADA_BASE_URL = OMADA_OMADAC_ID = OMADA_CLIENT_ID = OMADA_CLIENT_SECRET = ''
     NEBULA_BASE_URL = NEBULA_API_KEY = NEBULA_ORG_ID = ''
-    ANYDESK_API_LICENSE = ANYDESK_API_KEY = ''
+    ANYDESK_API_LICENSE = ANYDESK_API_KEY = ANYDESK_API_TOKEN = ''
     LOGITECH_CERT_PATH = LOGITECH_KEY_PATH = ''

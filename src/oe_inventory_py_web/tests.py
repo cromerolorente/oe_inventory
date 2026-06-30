@@ -2054,7 +2054,7 @@ class StatusCacheAnyDeskTests(TestCase):
         from django.db import connection
         from unittest.mock import patch
         from oe_inventory_py_web import status_cache
-        with override_settings(ANYDESK_API_LICENSE='lic', ANYDESK_API_KEY='key'):
+        with override_settings(ANYDESK_API_TOKEN='token'):
             with patch('oe_inventory_py_web.anydesk.online_map',
                        return_value={'AD-111': True, 'AD-222': False}):
                 alerts, status = status_cache._anydesk_check()
@@ -2073,7 +2073,7 @@ class StatusCacheAnyDeskTests(TestCase):
         from django.test import override_settings
         from unittest.mock import patch
         from oe_inventory_py_web import status_cache, anydesk
-        with override_settings(ANYDESK_API_LICENSE='lic', ANYDESK_API_KEY='key'):
+        with override_settings(ANYDESK_API_TOKEN='token'):
             with patch('oe_inventory_py_web.anydesk.online_map',
                        side_effect=anydesk.AnydeskError('boom')):
                 alerts, status = status_cache._anydesk_check({'anydesk_alerts': 5})
