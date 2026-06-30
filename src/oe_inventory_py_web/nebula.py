@@ -137,7 +137,8 @@ def _client_counts(online_clients, devices_by_id):
     return {'wifi': len(wifi_macs), 'wired': len(wired_macs), 'total': len(all_macs)}
 
 
-def _build_topology(site_name, devices, online, online_clients, gw_metrics=None):
+def _build_topology(site_name, devices, online, online_clients, gw_metrics=None,
+                    outdated_ids=frozenset()):
     """A tiered map of the site: gateways/firewalls -> switches -> access points.
     Each node carries name, model, online state, the number of clients connected
     to it right now and (for firewalls) CPU/memory usage metrics.
@@ -159,6 +160,7 @@ def _build_topology(site_name, devices, online, online_clients, gw_metrics=None)
             'online': bool(online.get(d.get('devId'))),
             'clients': len(per_dev.get(d.get('devId'), ())),
             'metrics': metrics or [],
+            'outdated': d.get('devId') in outdated_ids,
         }
 
     def gw_entry(d):
@@ -355,7 +357,7 @@ def site_overview():
             online_clients = _online_clients(site_id)
             clients = _client_counts(online_clients, by_id)
             topology = _build_topology(s.get('name') or site_id, devices, online,
-                                       online_clients, gw_metrics)
+                                       online_clients, gw_metrics, outdated_ids)
 
             # All alerts: offline + outdated-firmware + over-threshold metrics.
             alert_list = offline_devices + outdated_devices + metric_alerts

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import json
 import os
 import sys
 from django.core.exceptions import ImproperlyConfigured
@@ -331,6 +332,36 @@ OMADA_CLIENT_SECRET = os.environ.get('OMADA_CLIENT_SECRET', '')
 # off by default. Set to True if your controller has a valid/trusted cert.
 OMADA_VERIFY_SSL = os.environ.get('OMADA_VERIFY_SSL', 'False') == 'True'
 
+
+def _omada_creds(suffix=''):
+    """Read one controller's credentials from OMADA_*<suffix> env vars."""
+    return {
+        'base_url': os.environ.get('OMADA_BASE_URL' + suffix, ''),
+        'omadac_id': os.environ.get('OMADA_OMADAC_ID' + suffix, ''),
+        'client_id': os.environ.get('OMADA_CLIENT_ID' + suffix, ''),
+        'client_secret': os.environ.get('OMADA_CLIENT_SECRET' + suffix, ''),
+        'verify_ssl': os.environ.get('OMADA_VERIFY_SSL' + suffix, 'False') == 'True',
+    }
+
+
+# Every configured Omada controller (one per site/installation): the base set
+# OMADA_* plus OMADA_*2, OMADA_*3… Each is fetched in its own pass and folded
+# into the Net Overview via OMADA_NEBULA_SITE_MAP. Add a suffix here to support
+# more controllers.
+OMADA_CONTROLLERS = [
+    c for c in (_omada_creds(s) for s in ('', '2', '3', '4'))
+    if c['base_url'] and c['omadac_id'] and c['client_id'] and c['client_secret']
+]
+# Maps an Omada site name -> the Nebula site name whose Net Overview card it
+# complements (switches/APs/clients + map nodes are folded into that card).
+# Override with a JSON object in the OMADA_NEBULA_SITE_MAP env var if needed.
+# NOTE: the Madrid key "Octopus Madrid" is an assumption (mirrors the Valencia
+# naming); confirm the real Omada site name once the Madrid controller creds are
+# in and adjust here or via the env var if it differs.
+OMADA_NEBULA_SITE_MAP = json.loads(
+    os.environ.get('OMADA_NEBULA_SITE_MAP')
+    or '{"Octopus Valencia": "DOCTOR ROMAGOSA", "Octopus Madrid": "MADRID"}')
+
 # Zyxel Nebula Control Center API. Token (Bearer) and org come from an API key
 # generated in NCC. Secrets via env vars / EB Environment Properties only.
 NEBULA_BASE_URL = os.environ.get('NEBULA_BASE_URL', '')      # e.g. https://api.nebula.zyxel.com
@@ -377,6 +408,7 @@ MDI_STATUS_REFRESH_SECONDS = 300  # recompute cadence (5 minutes)
 if 'test' in sys.argv:
     MDI_STATUS_REFRESH_IN_BACKGROUND = False
     OMADA_BASE_URL = OMADA_OMADAC_ID = OMADA_CLIENT_ID = OMADA_CLIENT_SECRET = ''
+    OMADA_CONTROLLERS = []
     NEBULA_BASE_URL = NEBULA_API_KEY = NEBULA_ORG_ID = ''
     ANYDESK_API_LICENSE = ANYDESK_API_KEY = ANYDESK_API_TOKEN = ''
     LOGITECH_CERT_PATH = LOGITECH_KEY_PATH = ''

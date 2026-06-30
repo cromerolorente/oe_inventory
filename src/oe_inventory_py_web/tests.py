@@ -2081,6 +2081,116 @@ class StatusCacheAnyDeskTests(TestCase):
         self.assertEqual(status, {'AD-111': False, 'AD-222': False})
 
 
+class StatusCacheOmadaMergeTests(TestCase):
+    """status_cache._apply_omada: fold Omada per-site data into Nebula rows."""
+
+    def _rows(self):
+        return [
+            {'site': 'DOCTOR ROMAGOSA',
+             'switches': {'total': 0, 'online': 0, 'offline': 0, 'outdated': 0},
+             'aps': {'total': 0, 'online': 0, 'offline': 0, 'outdated': 0},
+             'clients': {'total': 5, 'wifi': 2, 'wired': 3},
+             'alerts': 0, 'alert_list': [],
+             'topology': {'gateways': [{'name': 'FW'}], 'switches': [], 'aps': []}},
+            {'site': 'OTHER SITE',
+             'switches': {'total': 1, 'online': 1, 'offline': 0, 'outdated': 0},
+             'aps': {'total': 0, 'online': 0, 'offline': 0, 'outdated': 0},
+             'clients': {'total': 9, 'wifi': 9, 'wired': 0},
+             'alerts': 0, 'alert_list': [], 'topology': {}},
+        ]
+
+    def _details(self):
+        return [
+            {'name': 'Octopus Valencia',
+             'switches': {'total': 11, 'online': 10, 'offline': 1, 'outdated': 2},
+             'aps': {'total': 7, 'online': 7, 'offline': 0, 'outdated': 1},
+             'clients': {'total': 240, 'wifi': 130, 'wired': 110},
+             'offline_devices': [{'name': 'CORE 10G', 'issue': 'Offline'}],
+             'outdated_devices': [{'name': 'SW01', 'issue': 'Outdated firmware'},
+                                  {'name': 'SW02', 'issue': 'Outdated firmware'},
+                                  {'name': 'AP01', 'issue': 'Outdated firmware'}],
+             'topology': {'switches': [{'name': 'CORE 10G', 'online': False}],
+                          'aps': [{'name': 'AP01', 'online': True}]}},
+            {'name': 'Unmapped Site', 'switches': {'total': 3, 'online': 3, 'offline': 0, 'outdated': 0},
+             'aps': {'total': 0, 'online': 0, 'offline': 0, 'outdated': 0},
+             'clients': {'total': 1, 'wifi': 1, 'wired': 0}, 'offline_devices': [],
+             'outdated_devices': [], 'topology': {'switches': [], 'aps': []}},
+        ]
+
+    def test_merge_folds_into_mapped_site(self):
+        from oe_inventory_py_web import status_cache
+        rows = self._rows()
+        status_cache._apply_omada(rows, self._details(),
+                                  {'Octopus Valencia': 'DOCTOR ROMAGOSA'})
+        dr = next(r for r in rows if r['site'] == 'DOCTOR ROMAGOSA')
+        # switches/APs (incl. outdated) added on top of the (zero) Nebula counts
+        self.assertEqual(dr['switches'], {'total': 11, 'online': 10, 'offline': 1, 'outdated': 2})
+        self.assertEqual(dr['aps']['total'], 7)
+        self.assertEqual(dr['aps']['outdated'], 1)
+        # clients replaced with Omada's (no double counting)
+        self.assertEqual(dr['clients'], {'total': 240, 'wifi': 130, 'wired': 110})
+        # offline (1) + outdated-firmware (3) devices all became alerts
+        self.assertEqual(dr['alerts'], 4)
+        self.assertEqual(len(dr['alert_list']), 4)
+        # topology tiers extended (gateways kept from Nebula)
+        self.assertEqual([d['name'] for d in dr['topology']['switches']], ['CORE 10G'])
+        self.assertEqual([d['name'] for d in dr['topology']['aps']], ['AP01'])
+        self.assertEqual(dr['topology']['gateways'], [{'name': 'FW'}])
+        self.assertTrue(dr['omada'])
+
+    def test_merge_iterates_controllers_with_dedupe(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+        from oe_inventory_py_web import status_cache
+
+        def blank(total, sw, ap, clients):
+            return {'switches': {'total': sw, 'online': sw, 'offline': 0, 'outdated': 0},
+                    'aps': {'total': ap, 'online': ap, 'offline': 0, 'outdated': 0},
+                    'clients': clients}
+        rows = [
+            {'site': 'DOCTOR ROMAGOSA', **blank(0, 0, 0, {'total': 0, 'wifi': 0, 'wired': 0}),
+             'alerts': 0, 'alert_list': [], 'topology': {}},
+            {'site': 'MADRID', **blank(0, 0, 0, {'total': 0, 'wifi': 0, 'wired': 0}),
+             'alerts': 0, 'alert_list': [], 'topology': {}},
+        ]
+        val = {'name': 'Octopus Valencia', 'site_id': 'v1', 'offline_devices': [],
+               'outdated_devices': [], 'topology': {'switches': [], 'aps': []},
+               **blank(0, 5, 2, {'total': 50, 'wifi': 30, 'wired': 20})}
+        mad = {'name': 'Octopus Madrid', 'site_id': 'm1', 'offline_devices': [],
+               'outdated_devices': [], 'topology': {'switches': [], 'aps': []},
+               **blank(0, 3, 1, {'total': 10, 'wifi': 10, 'wired': 0})}
+        # Controller A listed twice (same site) must merge once; B is a 2nd site.
+        controllers = [{'omadac_id': 'A', 'base_url': 'a'},
+                       {'omadac_id': 'A', 'base_url': 'a'},
+                       {'omadac_id': 'B', 'base_url': 'b'}]
+        site_map = {'Octopus Valencia': 'DOCTOR ROMAGOSA', 'Octopus Madrid': 'MADRID'}
+        with override_settings(OMADA_NEBULA_SITE_MAP=site_map):
+            with patch('oe_inventory_py_web.omada.controllers', return_value=controllers), \
+                 patch('oe_inventory_py_web.omada.site_details',
+                       side_effect=lambda creds: [val] if creds['omadac_id'] == 'A' else [mad]):
+                status_cache._merge_omada(rows)
+        dr = next(r for r in rows if r['site'] == 'DOCTOR ROMAGOSA')
+        mr = next(r for r in rows if r['site'] == 'MADRID')
+        # Valencia merged once despite controller A appearing twice (dedupe).
+        self.assertEqual(dr['switches']['total'], 5)
+        self.assertEqual(dr['clients']['total'], 50)
+        # The second controller's site folded into the Madrid card.
+        self.assertEqual(mr['switches']['total'], 3)
+        self.assertEqual(mr['clients']['total'], 10)
+
+    def test_unmapped_and_other_sites_untouched(self):
+        from oe_inventory_py_web import status_cache
+        rows = self._rows()
+        status_cache._apply_omada(rows, self._details(),
+                                  {'Octopus Valencia': 'DOCTOR ROMAGOSA'})
+        other = next(r for r in rows if r['site'] == 'OTHER SITE')
+        self.assertEqual(other['switches'], {'total': 1, 'online': 1, 'offline': 0, 'outdated': 0})
+        self.assertEqual(other['clients'], {'total': 9, 'wifi': 9, 'wired': 0})
+        self.assertNotIn('omada', other)
+        # The unmapped Omada site created no new row.
+        self.assertEqual({r['site'] for r in rows}, {'DOCTOR ROMAGOSA', 'OTHER SITE'})
+
+
 class LogitechClientTests(TestCase):
     """logitech.rooms_overview: parse the Sync Cloud /places payload."""
 
@@ -2453,6 +2563,51 @@ class NetOverviewScreenTests(TestCase):
                 self.client.force_login(self.user)
                 resp = self.client.get(reverse('frm_net_overview'), {'partial': '1'})
                 self.assertEqual(resp.status_code, 202)
+
+    def test_alerts_excel_export(self):
+        from unittest.mock import patch
+        import io
+        import openpyxl
+        rows = [{'site': 'Madrid', 'alert_list': [
+            {'name': 'SW1', 'type': 'SWITCH', 'model': 'X1', 'mac': 'AA-BB',
+             'issue': 'Outdated firmware', 'detail': '1.0 -> 2.0'}]}]
+        with patch('oe_inventory_py_web.status_cache.get_net_overview', return_value=(rows, None)):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('frm_net_overview'),
+                                   {'export': 'excel', 'site': 'Madrid'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('spreadsheetml', resp['Content-Type'])
+        self.assertIn('attachment', resp['Content-Disposition'])
+        ws = openpyxl.load_workbook(io.BytesIO(resp.content)).active
+        self.assertEqual(ws.max_row, 2)  # header + one alert row
+        self.assertEqual(ws.cell(2, 6).value, 'Outdated firmware')
+        self.assertEqual(ws.cell(2, 7).value, '1.0 -> 2.0')
+
+    def test_topology_pdf_export(self):
+        from unittest.mock import patch
+        rows = [{'site': 'Madrid', 'topology': {
+            'gateways': [{'name': 'FW', 'model': 'Z', 'online': True, 'clients': 0,
+                          'metrics': [{'label': 'CPU', 'value': 10}, {'label': 'Memory', 'value': 40}],
+                          'outdated': False}],
+            'switches': [{'name': 'SW1', 'model': 'X', 'online': True, 'clients': 5,
+                          'metrics': [], 'outdated': True}],
+            'aps': []}}]
+        with patch('oe_inventory_py_web.status_cache.get_net_overview', return_value=(rows, None)):
+            self.client.force_login(self.user)
+            resp = self.client.get(reverse('frm_net_overview'),
+                                   {'export': 'pdf', 'site': 'Madrid'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'application/pdf')
+        self.assertTrue(resp.content[:5] == b'%PDF-')
+
+    def test_alerts_excel_export_requires_permission(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username='no_perm_exp', password='pass12345', net_overview=0, reader=1)
+        self.client.force_login(other)
+        resp = self.client.get(reverse('frm_net_overview'),
+                               {'export': 'excel', 'site': 'Madrid'})
+        self.assertEqual(resp.status_code, 302)
 
 
 class NetAlertsBadgeTests(TestCase):

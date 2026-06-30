@@ -74,13 +74,18 @@
                      + esc(m.label) + ' ' + m.value + '%</span>';
             }).join('') + '</div>';
         }
+        function outdatedHtml(d) {
+            return d.outdated
+                ? '<div class="topo-outdated" style="margin-top:5px;color:#fd7e14;font-size:.62rem;font-weight:600;text-align:center;white-space:nowrap;" title="A newer firmware is available">firmware outdated</div>'
+                : '';
+        }
         function card(d, kind, icon) {
             return '<div class="topo-dev topo-' + kind + (d.online ? '' : ' topo-off') + '">'
                 + '<div class="topo-top"><span class="topo-ic">' + icon + '</span><span class="topo-nm">' + esc(d.name) + '</span></div>'
                 + '<div class="topo-md">' + esc(d.model) + '</div>'
                 + '<div class="topo-ft"><span class="topo-st">' + (d.online ? '● online' : '● offline') + '</span>'
                 + '<span class="topo-cl">👥 <b>' + (d.clients || 0) + '</b></span></div>'
-                + metricsHtml(d) + '</div>';
+                + metricsHtml(d) + outdatedHtml(d) + '</div>';
         }
         function tier(label, list, kind, icon) {
             if (!list || !list.length) return '';
@@ -96,7 +101,12 @@
         if (!total) {
             html = '<p class="text-muted mb-0">No devices in this site.</p>';
         } else {
-            html = '<div class="topo-wrap">'
+            // Export this topology report to PDF (server-side, by site).
+            var pdfUrl = window.location.pathname + '?export=pdf&site=' + encodeURIComponent(t.site || '');
+            var pdfBtn = '<div style="text-align:right; margin-bottom:6px;">'
+                + '<a href="' + pdfUrl + '" target="_blank" class="btn btn-sm btn-danger" '
+                + 'title="Open this topology as a PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</a></div>';
+            html = pdfBtn + '<div class="topo-wrap">'
                 + '<div class="topo-legend"><span><span class="topo-dot on"></span>Online</span>'
                 + '<span><span class="topo-dot off"></span>Offline</span>'
                 + '<span>👥 clients connected now</span></div>'
@@ -133,32 +143,41 @@
         if (!devices.length) {
             body = '<p class="text-success mb-0">No issues.</p>';
         } else {
-            body = '<p class="text-muted">These devices need attention — <b>offline</b> (unreachable; '
+            // Export-to-Excel button (server-side, by site) — same icon as the grids.
+            var xlsxUrl = window.location.pathname + '?export=excel&site=' + encodeURIComponent(site);
+            var exportBtn = '<div style="text-align:right; margin-bottom:6px;">'
+                 + '<a href="' + xlsxUrl + '" title="Export these alerts to Excel" class="btn p-0 border-0">'
+                 + '<img src="/static/buttons/send_to_excel.png" alt="Export to Excel" style="width:26px; height:26px; display:inline-block;"></a></div>';
+            // white-space:nowrap on the table cascades to the cells, so each alert
+            // stays on a single line; the wrapper scrolls if it ever overflows.
+            body = exportBtn
+                 + '<p class="text-muted" style="font-size:.82rem;">These devices need attention — <b>offline</b> (unreachable; '
                  + 'check power, cabling and uplink) or with <b>outdated firmware</b>.</p>'
-                 + '<table style="width:100%; border-collapse:collapse; font-size:.9rem;">'
+                 + '<div style="overflow-x:auto;">'
+                 + '<table style="width:100%; border-collapse:collapse; font-size:.8rem; white-space:nowrap; text-align:left;">'
                  + '<thead><tr style="background:#f1f3f5;">'
-                 + '<th style="text-align:left; padding:.3rem .5rem;">Name</th>'
-                 + '<th style="text-align:left; padding:.3rem .5rem;">Type</th>'
-                 + '<th style="text-align:left; padding:.3rem .5rem;">Model</th>'
-                 + '<th style="text-align:left; padding:.3rem .5rem;">Issue</th></tr></thead><tbody>';
+                 + '<th style="text-align:left; padding:.3rem .6rem;">Name</th>'
+                 + '<th style="text-align:left; padding:.3rem .6rem;">Type</th>'
+                 + '<th style="text-align:left; padding:.3rem .6rem;">Model</th>'
+                 + '<th style="text-align:left; padding:.3rem .6rem;">Issue</th></tr></thead><tbody>';
             devices.forEach(function (d) {
                 var isOutdated = (d.issue || '').toLowerCase().indexOf('outdated') !== -1;
                 var issueHtml = '<span style="color:' + (isOutdated ? '#fd7e14' : '#dc3545') + ';">' + esc(d.issue || '') + '</span>'
                               + (d.detail ? ' <span class="text-muted">(' + esc(d.detail) + ')</span>' : '');
                 body += '<tr>'
-                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + esc(d.name) + '</td>'
-                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + esc(d.type) + '</td>'
-                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + esc(d.model) + '</td>'
-                     + '<td style="padding:.3rem .5rem; border-top:1px solid #eee;">' + issueHtml + '</td>'
+                     + '<td style="padding:.3rem .6rem; border-top:1px solid #eee;">' + esc(d.name) + '</td>'
+                     + '<td style="padding:.3rem .6rem; border-top:1px solid #eee;">' + esc(d.type) + '</td>'
+                     + '<td style="padding:.3rem .6rem; border-top:1px solid #eee;">' + esc(d.model) + '</td>'
+                     + '<td style="padding:.3rem .6rem; border-top:1px solid #eee;">' + issueHtml + '</td>'
                      + '</tr>';
             });
-            body += '</tbody></table>';
+            body += '</tbody></table></div>';
         }
 
         Swal.fire({
             title: '<i class="bi bi-exclamation-triangle-fill text-danger"></i> Alerts — ' + esc(site),
             html: body,
-            width: 600,
+            width: 1000,
             confirmButtonText: 'Close',
             confirmButtonColor: '#FF48D8',
         });

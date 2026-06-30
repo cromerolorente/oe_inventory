@@ -41,6 +41,63 @@ def _refresh_seconds():
     return getattr(settings, 'MDI_STATUS_REFRESH_SECONDS', 300)
 
 
+def _apply_omada(rows, details, site_map):
+    """Fold Omada per-site stats (``details`` from omada.site_details) into the
+    matching Nebula rows. ``site_map`` maps an Omada site name -> the Nebula site
+    name whose card it complements. Mutates and returns ``rows``.
+
+    Switches/APs are *added* to the Nebula counts (a Nebula-only site usually has
+    0 of the TP-Link gear); client figures are *replaced* with Omada's to avoid
+    double-counting the same physical clients; Omada offline devices add to the
+    alert list; and the Omada switches/APs are appended to the topology map."""
+    by_name = {r.get('site'): r for r in rows}
+    for od in details or []:
+        target = site_map.get(od.get('name'))
+        row = by_name.get(target)
+        if not row:
+            continue
+        for famkey in ('switches', 'aps'):
+            dst = row.setdefault(famkey, {'total': 0, 'online': 0, 'offline': 0, 'outdated': 0})
+            src = od.get(famkey) or {}
+            for k in ('total', 'online', 'offline', 'outdated'):
+                dst[k] = (dst.get(k) or 0) + (src.get(k) or 0)
+        if od.get('clients'):
+            row['clients'] = od['clients']
+        # Offline + outdated-firmware devices both count as alerts (like Nebula).
+        extra = (od.get('offline_devices') or []) + (od.get('outdated_devices') or [])
+        if extra:
+            row['alert_list'] = (row.get('alert_list') or []) + extra
+            row['alerts'] = len(row['alert_list'])
+        topo = row.setdefault('topology', {})
+        otopo = od.get('topology') or {}
+        for tierkey in ('switches', 'aps'):
+            topo[tierkey] = (topo.get(tierkey) or []) + (otopo.get(tierkey) or [])
+        row['omada'] = True
+    return rows
+
+
+def _merge_omada(rows):
+    """Extra passes (one per configured Omada controller): pull each controller's
+    site data and fold it into the Nebula rows. A failure on one controller is
+    logged and skipped so the others (and the Nebula data) still show."""
+    from . import omada
+    site_map = getattr(settings, 'OMADA_NEBULA_SITE_MAP', {}) or {}
+    details, seen = [], set()
+    for creds in omada.controllers():
+        try:
+            for od in omada.site_details(creds):
+                # Dedupe the same physical site if two controllers expose it.
+                key = (creds.get('omadac_id'), od.get('site_id'))
+                if key in seen:
+                    continue
+                seen.add(key)
+                details.append(od)
+        except Exception:
+            logger.warning("Omada controller fetch failed (%s); skipping",
+                           creds.get('base_url'))
+    return _apply_omada(rows, details, site_map)
+
+
 def _store(data):
     cache.set(DATA_KEY, data, None)
     cache.set(TS_KEY, time.time(), None)
@@ -82,6 +139,15 @@ def compute_and_store():
         net_alerts = prev.get('net_alerts')  # keep last known if Nebula fails
         try:
             rows = nebula.site_overview()
+            # Second pass: fold in the Omada controller data (switches/APs/clients
+            # and map nodes) for the mapped sites. Isolated so an Omada outage
+            # never drops the Nebula data — the cards just show Nebula-only.
+            from . import omada
+            if omada.controllers():
+                try:
+                    _merge_omada(rows)
+                except Exception:
+                    logger.warning("Omada merge failed; showing Nebula-only data")
             net_alerts = sum(int(r.get('alerts') or 0) for r in rows)
             cache.set(ROWS_KEY, rows, None)
             cache.set(ERR_KEY, None, None)

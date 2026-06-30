@@ -3403,10 +3403,56 @@ def frm_omada_view(request):
     })
 
 
+def _net_overview_topology_pdf(site_name):
+    """PDF of one site's topology (firewalls/switches/APs with status, clients,
+    CPU/memory and firmware), read from the background-refreshed cache."""
+    from . import status_cache
+    from .reports import build_net_topology_pdf
+    rows, _err = status_cache.get_net_overview(trigger=False)
+    row = next((r for r in (rows or []) if r.get('site') == site_name), None)
+    pdf = build_net_topology_pdf(site_name, (row or {}).get('topology') or {})
+    response = HttpResponse(pdf, content_type='application/pdf')
+    safe = ''.join(c if c.isalnum() else '_' for c in (site_name or 'site'))[:40]
+    response['Content-Disposition'] = f'inline; filename="net_topology_{safe}.pdf"'
+    return response
+
+
+def _net_overview_alerts_export(site_name):
+    """Excel export of one site's current alert list (offline / outdated-firmware
+    / high-usage devices), read from the background-refreshed Net Overview cache."""
+    from . import status_cache
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    safe = ''.join(c if c.isalnum() else '_' for c in (site_name or 'site'))[:40]
+    response['Content-Disposition'] = f'attachment; filename="net_alerts_{safe}.xlsx"'
+    rows, _err = status_cache.get_net_overview(trigger=False)
+    row = next((r for r in (rows or []) if r.get('site') == site_name), None)
+    alerts = (row or {}).get('alert_list') or []
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Alerts"
+    ws.append(['Site', 'Name', 'Type', 'Model', 'MAC', 'Issue', 'Detail'])
+    for a in alerts:
+        ws.append([site_name, a.get('name') or '', a.get('type') or '', a.get('model') or '',
+                   a.get('mac') or '', a.get('issue') or '', a.get('detail') or ''])
+    wb.save(response)
+    return response
+
+
 @login_required
 def frm_net_overview_view(request):
     import json
     from . import nebula, status_cache
+    # Exports (gated by the net_overview permission): site alerts to Excel, or
+    # the site topology to PDF.
+    export = request.GET.get('export')
+    if export in ('excel', 'pdf'):
+        if not getattr(request.user, 'net_overview', 0):
+            return redirect('mdi_home')
+        site = request.GET.get('site', '')
+        return (_net_overview_topology_pdf(site) if export == 'pdf'
+                else _net_overview_alerts_export(site))
     # The page first loads a spinner shell; the data arrives via this same view
     # with ?partial=1 (AJAX). The data is served from the background-refreshed
     # cache (status_cache) so this request never waits on the slow Nebula API —
