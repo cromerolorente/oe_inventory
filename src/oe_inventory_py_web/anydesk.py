@@ -19,6 +19,7 @@ allowed IP (e.g. the production server).
 import json
 import logging
 import ssl
+import urllib.error
 import urllib.request
 
 from django.conf import settings
@@ -79,8 +80,24 @@ def _request(path):
         'Accept': 'application/json',
         'User-Agent': _USER_AGENT,
     })
-    with urllib.request.urlopen(req, timeout=20, context=_ssl_context()) as resp:
-        return json.loads(resp.read().decode('utf-8'))
+    try:
+        with urllib.request.urlopen(req, timeout=20, context=_ssl_context()) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        # Read the body to tell apart a Cloudflare edge challenge (an HTML
+        # "Just a moment..." page — the request never reached the API) from a
+        # genuine API error (JSON). This makes the logs say which it is.
+        body = ''
+        try:
+            body = e.read().decode('utf-8', 'replace')
+        except Exception:
+            pass
+        if 'Just a moment' in body or 'cf-browser-verification' in body or '/cdn-cgi/' in body:
+            raise AnydeskError(
+                f"HTTP {e.code}: blocked by Cloudflare challenge (request did not "
+                f"reach the API) at {settings.ANYDESK_API_URL} — the host is "
+                f"bot-protected; the server IP must be allowed by AnyDesk")
+        raise AnydeskError(f"HTTP {e.code} from API: {body[:200]}")
 
 
 def online_map():
