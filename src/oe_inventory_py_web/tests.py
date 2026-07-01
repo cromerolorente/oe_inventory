@@ -77,6 +77,19 @@ class StaffScreenTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'oe_inventory_py_web/frmStaff.html')
 
+    def test_staff_list_shows_assigned_phone_number(self):
+        from oe_inventory_py_web.models import OeesMobileLines, OeesMobilePhones
+        line = OeesMobileLines.objects.create(
+            number='600123456', imei='', pin='', puk='', pin2='', puk2='',
+            extension='', esim=0, m2m=0, obs='')
+        OeesMobilePhones.objects.create(
+            serial_number='PH-1', type='MOBILE', value=0.0,
+            persone=self.staff, id_line=line)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_staff'))
+        self.assertContains(resp, '<th>Phone</th>')     # new column header
+        self.assertContains(resp, '600123456')          # the assigned line number
+
     def test_api_get_staff_found(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse('api_get_staff'), {'id': self.staff.id_staff})

@@ -25,11 +25,6 @@
                         onclick="showTopology(this)">
                         <i class="bi bi-diagram-3"></i> Topology
                     </button>
-                    {% if s.alerts %}
-                    <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill"></i> {{ s.alerts }} alert{{ s.alerts|pluralize }}</span>
-                    {% else %}
-                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> OK</span>
-                    {% endif %}
                 </div>
             </div>
 
@@ -104,7 +99,7 @@
                 </div>
                 <!-- Alerts -->
                 <div class="col-lg col-md-4 col-sm-6">
-                    <div class="border rounded p-3 h-100 text-center {% if s.alerts %}border-danger{% endif %}"
+                    <div class="border rounded p-3 h-100 text-center {% if s.alerts %}border-danger{% else %}border-success{% endif %}"
                         {% if s.alerts %}role="button" style="cursor: pointer;"
                         title="Click for details"
                         data-site="{{ s.site }}" data-alerts="{{ s.alert_json }}"

@@ -200,12 +200,12 @@
                 <span class="fw-bold" style="color: #FF48D8;">Actives: {{ active_count|intcomma }}</span>
             </div>
             <div class="table-responsive app-surface" style="max-height: calc(100vh - 230px); min-height: 200px; overflow-y: auto;">
-                <table id="tabla-staff" class="table table-sm table-hover align-middle border-bottom">
+                <table id="tabla-staff" class="table table-sm table-hover align-middle border-bottom" style="white-space: nowrap;">
                     <thead class="table-dark sticky-top">
                         <tr>
                             <th>ID</th><th>Inc. Date</th><th>Name</th><th>Department</th><th>Company</th>
-                            <th class="text-center">Active</th><th class="text-center">P.Fis</th>
-                            <th>Delegation</th><th>eMail</th><th>Obs</th>
+                            <th class="text-center" style="width:1%;">Active</th><th class="text-center" style="width:1%;">P.Fis</th>
+                            <th>Delegation</th><th>Phone</th><th>eMail</th><th>Obs</th>
                         </tr>
                     </thead>
                     <tbody id="body-staff-list">
@@ -213,12 +213,13 @@
                         <tr class="staff-row" style="cursor: pointer;" data-id="{{ s.id_staff }}">
                             <td>{{ s.id_staff }}</td>
                             <td>{{ s.fecha_incorporacion|default:'' }}</td>
-                            <td>{{ s.name }}</td>
+                            <td><span class="d-inline-block text-truncate" style="max-width:150px; vertical-align:middle;" title="{{ s.name }}">{{ s.name }}</span></td>
                             <td>{{ s.department|default:'' }}</td>
                             <td>{% if s.company %}{{ s.company.name }}{% endif %}</td>
                             <td class="text-center">{% if s.state == 1 %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                             <td class="text-center">{% if s.persona_fisica == 1 %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                             <td>{% if s.delegation %}{{ s.delegation.delegation }}{% endif %}</td>
+                            <td>{{ s.phone_number|default:'' }}</td>
                             <td>{{ s.email|default:'' }}</td>
                             <td>{{ s.obs|default:'' }}</td>
                         </tr>

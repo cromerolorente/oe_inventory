@@ -932,12 +932,41 @@ def frm_staff_view(request):
         departments = [row[0] for row in cursor.fetchall()]
 
     scoped = scope_staff_queryset(user, OeesStaff.objects.select_related('company', 'delegation'))
+    staff_list = list(scoped.order_by('-id_staff'))
+
+    # Phone number per person: the number of the mobile line of the mobile phone
+    # assigned to them. The link exists in the data in BOTH directions — the
+    # phone points to its line (phone.id_line) and/or the line points to its
+    # phone (line.mobile) — so we consider both. Note the FK id columns are
+    # stored as strings, so we key everything by str() to match staff ids.
+    # Two bulk queries, then attach to each row (no query per row).
+    line_by_phone = {}   # phone id (str) -> number, via line.mobile
+    for mobile_id, number in (OeesMobileLines.objects
+                              .filter(mobile__isnull=False)
+                              .values_list('mobile_id', 'number')):
+        key = str(mobile_id).strip()
+        if number and key and key not in line_by_phone:
+            line_by_phone[key] = number
+
+    phone_by_staff = {}
+    for persone_id, phone_id, line_number in (OeesMobilePhones.objects
+            .filter(persone__isnull=False)
+            .order_by('id_mobile_phone')
+            .values_list('persone_id', 'id_mobile_phone', 'id_line__number')):
+        sid = str(persone_id).strip()
+        if not sid:
+            continue
+        number = line_number or line_by_phone.get(str(phone_id).strip())
+        if number and sid not in phone_by_staff:
+            phone_by_staff[sid] = number
+    for s in staff_list:
+        s.phone_number = phone_by_staff.get(str(s.id_staff), '')
 
     context = {
         'companies': companies,
         'delegations': delegations,
         'departments': departments,
-        'staff_list': scoped.order_by('-id_staff'),
+        'staff_list': staff_list,
         'people_count': scoped.filter(persona_fisica=1).count(),
         'active_count': scoped.filter(state=1).count(),
         'preselected_staff_id': staff_id,

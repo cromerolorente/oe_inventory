@@ -35,10 +35,7 @@ and is tied to window 'load' which fires once the table is fully ready.
                     <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                         <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Devices</h5>
                         <div>
-                            <input type="hidden" id="input-clave" name="clave" value="{{ device_data.serial_number|default:'' }}"> 
-                            <a href="{% url 'mdi_home' %}" class="btn btn-danger ms-auto btn-sm px-3">
-                                <i class="bi bi-box-arrow-right"></i> Exit
-                            </a>    
+                            <input type="hidden" id="input-clave" name="clave" value="{{ device_data.serial_number|default:'' }}">
                         </div>
                     </div>
 
@@ -160,6 +157,11 @@ and is tied to window 'load' which fires once the table is fully ready.
 
                 </div>
             </div> <div class="col-xl-3 col-lg-4 col-md-12">
+                <div class="d-flex justify-content-end mb-2">
+                    <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3">
+                        <i class="bi bi-box-arrow-right"></i> Exit
+                    </a>
+                </div>
                 <div class="card text-white text-end p-3 mb-2 shadow-sm">
                     <div class="small text-muted text-uppercase">Total Devices</div>
                     <h2 class="mb-0 text-info fw-bold">{{ total_devices|default:0|intcomma }}</h2>
