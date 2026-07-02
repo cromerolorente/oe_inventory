@@ -7,44 +7,30 @@ client id, i.e. the API's ``cid``).
 
 Auth is a single static token sent in the ``X-Api-Token`` header (the "API
 password" generated in the my.anydesk II console). Credentials come from the
-environment — see settings.ANYDESK_*. Standard library only (urllib).
+environment — see settings.ANYDESK_*.
 
-NOTE: my.anydesk.com is fronted by Cloudflare's managed challenge, which blocks
-non-browser clients from some IP ranges (you'll get an HTTP 403 "Just a
-moment..." HTML page instead of JSON). We send a browser-like User-Agent, but if
-the host keeps challenging from a given network the calls must run from an
-allowed IP (e.g. the production server).
+NOTE: my.anydesk.com is fronted by Cloudflare. AnyDesk support (2026-07) said
+IP whitelisting is not possible and that the HTTP 403 comes from using a
+browser-like/curl client; automation must send a proper User-Agent and they
+recommend Python's ``requests``. We therefore use ``requests`` (its default
+header set/order reads as an API client, unlike urllib's minimal headers) with
+a plain automation User-Agent. If Cloudflare still serves its "Just a moment"
+challenge, the call is reported as such so the caller falls back gracefully.
 """
 
-import json
 import logging
-import ssl
-import urllib.error
-import urllib.request
+
+import requests
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# AnyDesk support (2026-07): a *browser* User-Agent makes Cloudflare serve its
-# interactive challenge (HTTP 403), because it then expects a browser to solve
-# the JS challenge. For automation/scripts you must send a plain, non-browser
-# User-Agent so the request is treated as an API client instead.
+# Plain, non-browser User-Agent (per AnyDesk support: a browser UA triggers
+# Cloudflare's interactive JS challenge; automation should identify itself).
 _USER_AGENT = 'OE-Inventory/1.0 (automation)'
 # Page size for the paginated /clients listing.
 _PAGE_LIMIT = 200
-
-
-def _ssl_context():
-    # AnyDesk's API uses a valid public certificate, so verification works on the
-    # server. The python.org build on macOS ships without a CA bundle, so set
-    # ANYDESK_VERIFY_SSL=False locally to bypass verification.
-    if getattr(settings, 'ANYDESK_VERIFY_SSL', True):
-        return None
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
 
 
 class AnydeskError(Exception):
@@ -75,31 +61,36 @@ def pick_column(columns, *names, prefix=None):
 
 def _request(path):
     """GET an absolute API path (e.g. '/api/v2/clients?...') and return the
-    decoded JSON. Raises on transport/HTTP errors."""
+    decoded JSON, via ``requests``. Raises AnydeskError on transport/HTTP errors.
+
+    AnyDesk's cert is public/valid, so verification stays on in production; set
+    ANYDESK_VERIFY_SSL=False only for local dev (python.org macOS lacks a CA
+    bundle)."""
     url = settings.ANYDESK_API_URL.rstrip('/') + path
-    req = urllib.request.Request(url, headers={
-        'X-Api-Token': settings.ANYDESK_API_TOKEN,
-        'Accept': 'application/json',
-        'User-Agent': _USER_AGENT,
-    })
+    verify = getattr(settings, 'ANYDESK_VERIFY_SSL', True)
     try:
-        with urllib.request.urlopen(req, timeout=20, context=_ssl_context()) as resp:
-            return json.loads(resp.read().decode('utf-8'))
-    except urllib.error.HTTPError as e:
-        # Read the body to tell apart a Cloudflare edge challenge (an HTML
-        # "Just a moment..." page — the request never reached the API) from a
-        # genuine API error (JSON). This makes the logs say which it is.
-        body = ''
-        try:
-            body = e.read().decode('utf-8', 'replace')
-        except Exception:
-            pass
+        resp = requests.get(url, headers={
+            'X-Api-Token': settings.ANYDESK_API_TOKEN,
+            'Accept': 'application/json',
+            'User-Agent': _USER_AGENT,
+        }, timeout=20, verify=verify)
+    except requests.RequestException as exc:
+        raise AnydeskError(str(exc))
+
+    if resp.status_code != 200:
+        # Tell apart a Cloudflare edge challenge (an HTML "Just a moment..." page
+        # — the request never reached the API) from a genuine API error (JSON),
+        # so the logs say which it is.
+        body = resp.text or ''
         if 'Just a moment' in body or 'cf-browser-verification' in body or '/cdn-cgi/' in body:
             raise AnydeskError(
-                f"HTTP {e.code}: blocked by Cloudflare challenge (request did not "
-                f"reach the API) at {settings.ANYDESK_API_URL} — the host is "
-                f"bot-protected; the server IP must be allowed by AnyDesk")
-        raise AnydeskError(f"HTTP {e.code} from API: {body[:200]}")
+                f"HTTP {resp.status_code}: blocked by Cloudflare challenge (request "
+                f"did not reach the API) at {settings.ANYDESK_API_URL}")
+        raise AnydeskError(f"HTTP {resp.status_code} from API: {body[:200]}")
+    try:
+        return resp.json()
+    except ValueError:
+        raise AnydeskError("AnyDesk returned a non-JSON response")
 
 
 def online_map():
