@@ -2745,7 +2745,7 @@ def api_get_order(request):
 
 _LINES_GRID_SQL = (
     "SELECT a.number, b.name as company_name, a.origin, a.pin, a.puk, a.pin2, a.puk2, a.imei, "
-    "a.insert_date, c.serial_number as phone_serial, d.name as staff_name, a.extension, "
+    "a.insert_date, c.serial_number as phone_serial, d.name as staff_name, d.state as staff_state, a.extension, "
     "a.esim, a.M2M, a.fecha_baja, a.obs "
     "FROM oees_mobile_lines a "
     "LEFT JOIN oees_companies b ON a.company = b.id_company "
@@ -2796,7 +2796,8 @@ def _lines_grid_rows():
             'number': r['number'], 'company': r['company_name'] or '', 'origin': r['origin'] or '',
             'pin': r['pin'] or '', 'puk': r['puk'] or '', 'pin2': r['pin2'] or '', 'puk2': r['puk2'] or '',
             'imei': r['imei'] or '', 'date': r['insert_date'], 'phone': r['phone_serial'] or '',
-            'person': r['staff_name'] or '', 'extension': r['extension'] or '',
+            'person': r['staff_name'] or '', 'active': r['staff_state'] == 1,
+            'extension': r['extension'] or '',
             'esim': r['esim'], 'm2m': r['M2M'], 'baja': bool(r['fecha_baja']), 'obs': r['obs'] or '',
         })
     return rows
@@ -2811,11 +2812,12 @@ def _lines_export_excel():
     ws = wb.active
     ws.title = "Mobile Lines"
     ws.append(['Number', 'Company', 'Origin', 'PIN', 'PUK', 'PIN2', 'PUK2', 'IMEI', 'Insert Date',
-               'Mobile', 'Person', 'Ext', 'eSIM', 'M2M', 'Cancelled', 'Obs'])
+               'Mobile', 'Person', 'Active', 'Ext', 'eSIM', 'M2M', 'Cancelled', 'Obs'])
     for r in _lines_grid_rows():
         ws.append([r['number'], r['company'], r['origin'], r['pin'], r['puk'], r['pin2'], r['puk2'],
                    r['imei'], r['date'].strftime('%Y-%m-%d') if r['date'] else '', r['phone'], r['person'],
-                   r['extension'], 'Yes' if r['esim'] else '', 'Yes' if r['m2m'] else '',
+                   'Yes' if r['active'] else 'No', r['extension'],
+                   'Yes' if r['esim'] else '', 'Yes' if r['m2m'] else '',
                    'Yes' if r['baja'] else '', r['obs']])
     wb.save(response)
     return response

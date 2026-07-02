@@ -807,6 +807,23 @@ class MobileLinesScreenTests(TestCase):
         self.assertIn('NO-SIM-WITH-PERSON', stock)   # has a person but no SIM -> eligible
         self.assertNotIn('HAS-SIM', stock)           # already has a SIM -> excluded
 
+    def test_grid_active_column_reflects_person_state(self):
+        from oe_inventory_py_web.models import OeesStaff, OeesMobilePhones
+        act = OeesStaff.objects.create(name='Act', notes='', persona_fisica=1, state=1)
+        ina = OeesStaff.objects.create(name='Ina', notes='', persona_fisica=1, state=0)
+        ph_a = OeesMobilePhones.objects.create(serial_number='PH-ACT', type='MOBILE', value=0, persone=act)
+        ph_i = OeesMobilePhones.objects.create(serial_number='PH-INA', type='MOBILE', value=0, persone=ina)
+        common = dict(imei='', pin='', puk='', pin2='', puk2='', extension='', esim=0, m2m=0, obs='')
+        OeesMobileLines.objects.create(number='600000010', mobile=ph_a, **common)
+        OeesMobileLines.objects.create(number='600000011', mobile=ph_i, **common)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_mobile_lines'))
+        by_num = {r['number']: r for r in resp.context['grid_rows']}
+        self.assertTrue(by_num['600000010']['active'])    # person state == 1
+        self.assertFalse(by_num['600000011']['active'])   # person state == 0
+        self.assertFalse(by_num['600100200']['active'])   # no phone/person
+        self.assertContains(resp, '<th class="text-center">Active</th>')
+
     def test_api_get_line_not_found(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse('api_get_line'), {'number': '000'})

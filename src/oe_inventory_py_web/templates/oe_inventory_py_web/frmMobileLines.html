@@ -245,7 +245,7 @@
                 <thead class="table-dark sticky-top">
                     <tr>
                         <th>Number</th><th>Company</th><th>Origin</th><th>PIN</th><th>PUK</th><th>PIN2</th><th>PUK2</th>
-                        <th>IMEI</th><th>Date</th><th>Mobile</th><th>Person</th><th>Ext</th>
+                        <th>IMEI</th><th>Date</th><th>Mobile</th><th>Person</th><th class="text-center">Active</th><th>Ext</th>
                         <th class="text-center">eSIM</th><th class="text-center">M2M</th><th class="text-center">B</th><th>Obs</th>
                     </tr>
                 </thead>
@@ -263,6 +263,7 @@
                         <td>{{ r.date|date:'d-m-Y' }}</td>
                         <td>{{ r.phone }}</td>
                         <td>{{ r.person }}</td>
+                        <td class="text-center">{% if r.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                         <td>{{ r.extension }}</td>
                         <td class="text-center">{% if r.esim %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
                         <td class="text-center">{% if r.m2m %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
