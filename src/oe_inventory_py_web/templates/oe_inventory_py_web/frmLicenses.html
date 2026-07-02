@@ -146,7 +146,7 @@
                     </a>
                 </div>
 
-                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto;">
+                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 540px); min-height: 140px; overflow-y: auto;">
                     <table id="tabla-licencias" class="table table-sm table-hover align-middle table-borderless border-bottom">
                         <thead class="table-dark sticky-top">
                             <tr>
@@ -186,7 +186,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/licenses.js' %}"></script>
+<script src="{% static 'js/licenses.js' %}?v=4"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

@@ -68,6 +68,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (window.jQuery && jQuery.fn.DataTable) {
-        jQuery('#tabla-licencias').DataTable({ pageLength: 50, ordering: true, autoWidth: false });
+        jQuery('#tabla-licencias').DataTable({ pageLength: 20, ordering: true, autoWidth: false });
     }
 });

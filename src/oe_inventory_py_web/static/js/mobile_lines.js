@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (window.jQuery && jQuery.fn.DataTable) {
-        jQuery('#tabla-lineas').DataTable({ pageLength: 25, ordering: true, autoWidth: false });
+        jQuery('#tabla-lineas').DataTable({ pageLength: 20, ordering: true, autoWidth: false });
     }
 
     const pre = document.getElementById('preselected-number').value;

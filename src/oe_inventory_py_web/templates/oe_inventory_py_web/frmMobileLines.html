@@ -240,7 +240,7 @@
                 <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
             </a>
         </div>
-        <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto;">
+        <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 540px); min-height: 140px; overflow-y: auto;">
             <table id="tabla-lineas" class="table table-sm table-hover align-middle border-bottom">
                 <thead class="table-dark sticky-top">
                     <tr>
@@ -278,7 +278,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/mobile_lines.js' %}"></script>
+<script src="{% static 'js/mobile_lines.js' %}?v=2"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

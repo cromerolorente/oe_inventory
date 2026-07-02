@@ -289,6 +289,49 @@ class PhonesScreenTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'oe_inventory_py_web/frmPhones.html')
 
+    def test_excel_export_includes_active_column(self):
+        import io
+        import openpyxl
+        from oe_inventory_py_web.models import OeesStaff, OeesMobilePhones
+        p = OeesStaff.objects.create(name='Active P', persona_fisica=1, notes='', state=1)
+        OeesMobilePhones.objects.create(serial_number='PH-X', type='', value=0.0, persone=p)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_phones'), {'export': 'excel'})
+        ws = openpyxl.load_workbook(io.BytesIO(resp.content)).active
+        header = [c.value for c in ws[1]]
+        self.assertIn('Active', header)
+        self.assertEqual(header.index('Active'), header.index('Person') + 1)  # after Person
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        px = next(r for r in rows if r[0] == 'PH-X')
+        self.assertEqual(px[header.index('Active')], 'Yes')
+
+    def test_total_phones_assigned_counts_phones_with_a_line(self):
+        from oe_inventory_py_web.models import OeesMobileLines, OeesMobilePhones
+        line = OeesMobileLines.objects.create(
+            number='600000001', imei='', pin='', puk='', pin2='', puk2='',
+            extension='', esim=0, m2m=0, obs='')
+        OeesMobilePhones.objects.create(serial_number='PH-WL', type='', value=0.0, id_line=line)
+        OeesMobilePhones.objects.create(serial_number='PH-NL', type='', value=0.0)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_phones'))
+        self.assertEqual(resp.context['total_phones'], 3)            # PH-1, PH-WL, PH-NL
+        self.assertEqual(resp.context['total_phones_assigned'], 1)   # only PH-WL has a line
+        self.assertContains(resp, 'Total Phones Assigned')
+
+    def test_grid_active_column_reflects_person_state(self):
+        from oe_inventory_py_web.models import OeesStaff, OeesMobilePhones
+        active_p = OeesStaff.objects.create(name='Active P', persona_fisica=1, notes='', state=1)
+        inactive_p = OeesStaff.objects.create(name='Inactive P', persona_fisica=1, notes='', state=0)
+        OeesMobilePhones.objects.create(serial_number='PH-A', type='', value=0.0, persone=active_p)
+        OeesMobilePhones.objects.create(serial_number='PH-I', type='', value=0.0, persone=inactive_p)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_phones'))
+        by_serial = {g['serial']: g for g in resp.context['grid_data']}
+        self.assertTrue(by_serial['PH-A']['active'])     # person state == 1
+        self.assertFalse(by_serial['PH-I']['active'])    # person state == 0
+        self.assertFalse(by_serial['PH-1']['active'])    # no person assigned
+        self.assertContains(resp, '<th class="text-center">Active</th>')
+
     def test_phone_release_generates_unassign_doc(self):
         import tempfile
         from django.test import override_settings
@@ -1446,6 +1489,17 @@ class DevicesGridServerSideTests(TestCase):
         # Totals are computed by aggregation, not by looping a grid in Python.
         self.assertEqual(response.context['total_devices'], 4)
         self.assertEqual(response.context['total_value'], 1200.0)
+
+    def test_finder_searches_devices_by_partial_serial(self):
+        # The lupa finder must search by serial number (partial), not by model.
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('api_finder'),
+                               {'term': 'SN-', 'field': 'serial_number', 'option': 'devices'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['data']
+        self.assertEqual({d['code'] for d in data}, {'SN-0', 'SN-1', 'SN-2'})
+        # The description column shows the model.
+        self.assertEqual(next(d for d in data if d['code'] == 'SN-0')['description'], 'M0')
 
     def test_datatable_returns_paginated_json(self):
         self.client.force_login(self.user)

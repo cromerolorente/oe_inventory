@@ -26,9 +26,11 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Cloudflare rejects urllib's default User-Agent; present a browser-like one.
-_USER_AGENT = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-               'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36')
+# AnyDesk support (2026-07): a *browser* User-Agent makes Cloudflare serve its
+# interactive challenge (HTTP 403), because it then expects a browser to solve
+# the JS challenge. For automation/scripts you must send a plain, non-browser
+# User-Agent so the request is treated as an API client instead.
+_USER_AGENT = 'OE-Inventory/1.0 (automation)'
 # Page size for the paginated /clients listing.
 _PAGE_LIMIT = 200
 

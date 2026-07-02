@@ -49,7 +49,7 @@ and is tied to window 'load' which fires once the table is fully ready.
                                     oninput="limpiarFormularioDispositivo()">
                                 
                                 <button type="button" class="btn p-0 border-0 ms-2" title="Find Device"
-                                    onclick="FrmFinder.open('input-serial', 'buscarDispositivoAjax', 'model', '5')">
+                                    onclick="FrmFinder.open('input-serial', 'buscarDispositivoAjax', 'serial_number', 'devices')">
                                     <img src="/static/buttons/find.png" alt="Find" style="width: 24px; height: 24px; display: block;">
                                 </button>  
                                 <!--<button type="button" class="btn p-0 border-0 ms-2" title="Find Device" onclick="buscarDispositivoAjax()">
@@ -156,7 +156,7 @@ and is tied to window 'load' which fires once the table is fully ready.
                     </div>
 
                 </div>
-            </div> <div class="col-xl-3 col-lg-4 col-md-12">
+            </div> <div class="col-xl-3 col-lg-4 col-md-12 d-flex flex-column">
                 <div class="d-flex justify-content-end mb-2">
                     <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3">
                         <i class="bi bi-box-arrow-right"></i> Exit
@@ -171,9 +171,9 @@ and is tied to window 'load' which fires once the table is fully ready.
                     <h2 class="mb-0 text-info fw-bold">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h2>
                 </div>
 
-                <div class="card shadow-sm p-3 bg-white">
+                <div class="card shadow-sm p-3 bg-white flex-grow-1 d-flex flex-column mb-3">
                     <label class="form-label fw-bold text-secondary small"><i class="bi bi-journal-text"></i> History / Internal Notes</label>
-                    <textarea class="form-control form-control-sm bg-light small" name="notes" rows="11" placeholder="Automated system history..." {% if device_data %}readonly{% endif %}>{{ device_data.notes|default:'' }}</textarea>
+                    <textarea class="form-control form-control-sm bg-light small flex-grow-1" name="notes" rows="11" style="min-height:0; resize:none;" placeholder="Automated system history..." {% if device_data %}readonly{% endif %}>{{ device_data.notes|default:'' }}</textarea>
                 </div>
             </div>
 
@@ -184,10 +184,12 @@ and is tied to window 'load' which fires once the table is fully ready.
             <div class="card shadow-sm p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Active Devices Inventory</h5>
-                    <a href="?export=excel{% if staff_filter %}&id_staff={{ staff_filter }}{% endif %}" class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Export to Excel</a>
+                    <a href="?export=excel{% if staff_filter %}&id_staff={{ staff_filter }}{% endif %}" class="btn p-0 border-0" title="Send grid data to an Excel file">
+                        <img src="/static/buttons/send_to_excel.png" alt="Export to Excel" style="width: 24px; height: 24px; display: block;">
+                    </a>
                 </div>
 
-                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 520px); min-height: 200px; overflow-y: auto;">
+                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 540px); min-height: 140px; overflow-y: auto;">
                    <table id="tabla-dispositivos" class="table table-sm table-hover align-middle table-borderless border-bottom"
                           data-ajax-url="{% url 'api_devices_datatable' %}" data-staff-filter="{{ staff_filter|default:'' }}">
                         <thead class="table-dark sticky-top">
@@ -219,7 +221,7 @@ and is tied to window 'load' which fires once the table is fully ready.
     </div>
 </div>
 
-<script src="{% static 'js/devices.js' %}?v=ssr6"></script>
+<script src="{% static 'js/devices.js' %}?v=ssr8"></script>
 
 <!-- Include the finder modal's HTML and JS here at the end. -->
 {% include "oe_inventory_py_web/partials/finder_modal.html" %}

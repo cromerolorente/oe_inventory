@@ -16,8 +16,8 @@
         {% csrf_token %}
 
         <div class="row g-3">
-            <div class="col-xl-9 col-lg-8 col-md-12">
-                <div class="card shadow-sm p-4 bg-white mb-3">
+            <div class="col-xl-9 col-lg-8 col-md-12 d-flex flex-column">
+                <div class="card shadow-sm p-4 bg-white mb-3 flex-grow-1">
                     <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                         <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Mobile Phones</h5>
                         <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3">
@@ -111,20 +111,22 @@
                 </div>
             </div>
 
-            <div class="col-xl-3 col-lg-4 col-md-12">
+            <div class="col-xl-3 col-lg-4 col-md-12 d-flex flex-column">
                 <div class="card text-white text-end p-3 mb-2 shadow-sm">
                     <div class="small text-muted text-uppercase">Total Phones</div>
                     <h2 class="mb-0 text-info fw-bold">{{ total_phones|default:0|intcomma }}</h2>
+                    <div class="small text-muted text-uppercase mt-2 border-top pt-2">Total Phones Assigned</div>
+                    <h2 class="mb-0 text-info fw-bold">{{ total_phones_assigned|default:0|intcomma }}</h2>
                 </div>
                 <div class="card text-white text-end p-3 mb-2 shadow-sm">
                     <div class="small text-muted text-uppercase">Total Value</div>
                     <h2 class="mb-0 text-info fw-bold">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h2>
                 </div>
 
-                <div class="card shadow-sm p-3 bg-white">
+                <div class="card shadow-sm p-3 bg-white flex-grow-1 d-flex flex-column mb-3">
                     <label class="form-label fw-bold text-secondary small"><i class="bi bi-journal-text"></i> History / Internal Notes</label>
-                    <textarea class="form-control form-control-sm bg-light" id="textarea-notes" name="notes" rows="8"
-                        placeholder="Automated system history..." readonly></textarea>
+                    <textarea class="form-control form-control-sm bg-light flex-grow-1" id="textarea-notes" name="notes" rows="8"
+                        style="min-height:0; resize:none;" placeholder="Automated system history..." readonly></textarea>
                 </div>
             </div>
         </div>
@@ -140,12 +142,12 @@
                     </a>
                 </div>
 
-                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto;">
+                <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 540px); min-height: 140px; overflow-y: auto;">
                     <table id="tabla-telefonos" class="table table-sm table-hover align-middle table-borderless border-bottom">
                         <thead class="table-dark sticky-top">
                             <tr>
                                 <th>Serial Number</th><th>Company</th><th>Brand</th><th>Model</th><th>Origin</th>
-                                <th>Date</th><th>Person</th><th>Number</th><th>IMEI</th><th>Obs</th>
+                                <th>Date</th><th>Person</th><th class="text-center">Active</th><th>Number</th><th>IMEI</th><th>Obs</th>
                                 <th class="text-end">Value</th><th>Bill Number</th>
                             </tr>
                         </thead>
@@ -159,6 +161,7 @@
                                 <td>{{ item.origin|default:'-' }}</td>
                                 <td>{{ item.date_obj|date:'d-m-Y' }}</td>
                                 <td>{% if item.person %}{{ item.person }}{% else %}-{% endif %}</td>
+                                <td class="text-center">{% if item.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                                 <td>{{ item.number|default:'-' }}</td>
                                 <td>{{ item.imei|default:'-' }}</td>
                                 <td>{{ item.obs|default:'-' }}</td>
@@ -176,7 +179,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/phones.js' %}"></script>
+<script src="{% static 'js/phones.js' %}?v=2"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

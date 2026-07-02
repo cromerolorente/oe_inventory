@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const table = $('#tabla-dispositivos').DataTable({
         serverSide: true,
         processing: true,
-        pageLength: 50,
+        pageLength: 15,
         order: [[0, 'asc']],
         autoWidth: false,
         ajax: {

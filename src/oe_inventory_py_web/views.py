@@ -630,6 +630,13 @@ def api_finder(request):
         results = [{'code': k['id_key'], 'description': k['type'] or ''} for k in ak_qs]
         return JsonResponse({'status': 'success', 'data': results})
 
+    # Device finder: search by serial number (shows the model as description).
+    if option == 'devices':
+        dev_qs = (OeesDevices.objects.filter(serial_number__icontains=term)
+                  .order_by('serial_number').values('serial_number', 'model')[:50])
+        results = [{'code': d['serial_number'], 'description': d['model'] or ''} for d in dev_qs]
+        return JsonResponse({'status': 'success', 'data': results})
+
     # Build the filter dynamically (equivalent to a SQL 'like').
     lookup = f"{field}__icontains"
     filters = Q(**{lookup: term})
@@ -1471,7 +1478,7 @@ def _phones_grid_rows():
     return (OeesMobilePhones.objects
             .exclude(serial_number='Personal Mobile').exclude(type='DEVICE')
             .values('serial_number', 'company_id', 'company__name', 'brand', 'model', 'origin',
-                    'insert_date', 'persone__name', 'id_line__number', 'imei', 'obs', 'value',
+                    'insert_date', 'persone__name', 'persone__state', 'id_line__number', 'imei', 'obs', 'value',
                     'bill_number', 'notes')
             .order_by('-id_mobile_phone'))
 
@@ -1485,12 +1492,13 @@ def _phones_export_excel():
     ws = wb.active
     ws.title = "Mobile Phones"
     ws.append(['Serial Number', 'Company', 'Brand', 'Model', 'Origin', 'Insert Date',
-               'Person', 'Number', 'IMEI', 'Obs', 'Value', 'Bill Number'])
+               'Person', 'Active', 'Number', 'IMEI', 'Obs', 'Value', 'Bill Number'])
     for r in _phones_grid_rows():
         ws.append([
             r['serial_number'], r['company__name'] or '', r['brand'] or '', r['model'] or '',
             r['origin'] or '', r['insert_date'].strftime('%Y-%m-%d') if r['insert_date'] else '',
-            r['persone__name'] or '', r['id_line__number'] or '', r['imei'] or '',
+            r['persone__name'] or '', 'Yes' if r['persone__state'] == 1 else 'No',
+            r['id_line__number'] or '', r['imei'] or '',
             r['obs'] or '', r['value'], r['bill_number'] or '',
         ])
     wb.save(response)
@@ -1533,6 +1541,7 @@ def frm_phones_view(request):
             'serial': r['serial_number'], 'company_id': r['company_id'] or '',
             'company': r['company__name'] or '', 'brand': r['brand'] or '', 'model': r['model'] or '',
             'origin': r['origin'] or '', 'date_obj': r['insert_date'], 'person': r['persone__name'] or '',
+            'active': r['persone__state'] == 1,  # the assigned person is active
             'number': r['id_line__number'] or '', 'imei': r['imei'] or '', 'obs': r['obs'] or '',
             'value': value, 'bill': r['bill_number'] or '', 'notes': r['notes'] or '',
         })
@@ -1542,6 +1551,8 @@ def frm_phones_view(request):
         'origin_options': origin_options,
         'grid_data': grid_data,
         'total_phones': len(grid_data),
+        # Phones that have a phone number (mobile line) assigned.
+        'total_phones_assigned': sum(1 for g in grid_data if g['number']),
         'total_value': total_value,
         'preselected_sn': request.GET.get('sn', '').strip(),
         'is_reader': _is_reader(user),

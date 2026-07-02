@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (window.jQuery && jQuery.fn.DataTable) {
-        jQuery('#tabla-telefonos').DataTable({ pageLength: 50, ordering: true, autoWidth: false });
+        jQuery('#tabla-telefonos').DataTable({ pageLength: 20, ordering: true, autoWidth: false });
     }
 
     const pre = document.getElementById('preselected-sn').value;
