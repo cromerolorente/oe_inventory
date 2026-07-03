@@ -2754,7 +2754,7 @@ def api_get_order(request):
 _LINES_GRID_SQL = (
     "SELECT a.number, b.name as company_name, a.origin, a.pin, a.puk, a.pin2, a.puk2, a.imei, "
     "a.insert_date, c.serial_number as phone_serial, d.name as staff_name, d.state as staff_state, a.extension, "
-    "a.esim, a.M2M, a.fecha_baja, a.obs "
+    "a.esim, a.M2M, a.fecha_baja, a.obs, a.fee, a.DescTarif "
     "FROM oees_mobile_lines a "
     "LEFT JOIN oees_companies b ON a.company = b.id_company "
     "LEFT JOIN oees_mobile_phones c ON a.mobile = c.id_mobile_phone "
@@ -2807,6 +2807,7 @@ def _lines_grid_rows():
             'person': r['staff_name'] or '', 'active': r['staff_state'] == 1,
             'extension': r['extension'] or '',
             'esim': r['esim'], 'm2m': r['M2M'], 'baja': bool(r['fecha_baja']), 'obs': r['obs'] or '',
+            'fee': r['fee'] or 0, 'desc_tarif': r['DescTarif'] or '',
         })
     return rows
 
@@ -2820,11 +2821,11 @@ def _lines_export_excel():
     ws = wb.active
     ws.title = "Mobile Lines"
     ws.append(['Number', 'Company', 'Origin', 'PIN', 'PUK', 'PIN2', 'PUK2', 'IMEI', 'Insert Date',
-               'Mobile', 'Person', 'Active', 'Ext', 'eSIM', 'M2M', 'Cancelled', 'Obs'])
+               'Mobile', 'Person', 'Active', 'Ext', 'Fee', 'Tariff', 'eSIM', 'M2M', 'Cancelled', 'Obs'])
     for r in _lines_grid_rows():
         ws.append([r['number'], r['company'], r['origin'], r['pin'], r['puk'], r['pin2'], r['puk2'],
                    r['imei'], r['date'].strftime('%Y-%m-%d') if r['date'] else '', r['phone'], r['person'],
-                   'Yes' if r['active'] else 'No', r['extension'],
+                   'Yes' if r['active'] else 'No', r['extension'], r['fee'] or 0, r['desc_tarif'],
                    'Yes' if r['esim'] else '', 'Yes' if r['m2m'] else '',
                    'Yes' if r['baja'] else '', r['obs']])
     wb.save(response)
@@ -2932,6 +2933,11 @@ def _line_save(request):
     imei = request.POST.get('card', '').strip()
     extension = request.POST.get('extension', '').strip()
     obs = request.POST.get('obs', '').strip()
+    desc_tarif = request.POST.get('desc_tarif', '').strip()
+    try:
+        fee = float((request.POST.get('fee') or '0').replace(',', '.'))
+    except ValueError:
+        fee = 0
     esim = 1 if request.POST.get('esim') else 0
     m2m = 1 if request.POST.get('m2m') else 0
     now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
@@ -2944,10 +2950,10 @@ def _line_save(request):
             if not existing:
                 cur.execute(
                     "INSERT INTO oees_mobile_lines "
-                    "(number, company, imei, pin, puk, origin, insert_date, notes, pin2, puk2, extension, obs, esim, m2m) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "(number, company, imei, pin, puk, origin, insert_date, notes, pin2, puk2, extension, obs, esim, m2m, fee, DescTarif) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     [code, company_id, imei, pin, puk, origin, insert_date,
-                     f"{now} - Created by {user}", pin2, puk2, extension, obs, esim, m2m],
+                     f"{now} - Created by {user}", pin2, puk2, extension, obs, esim, m2m, fee, desc_tarif],
                 )
             else:
                 was_esim, was_m2m, mobile_id = existing
@@ -2964,9 +2970,9 @@ def _line_save(request):
                 cur.execute(
                     "UPDATE oees_mobile_lines SET company = %s, origin = %s, insert_date = %s, notes = %s, "
                     "imei = %s, pin = %s, puk = %s, pin2 = %s, puk2 = %s, extension = %s, obs = %s, "
-                    "esim = %s, m2m = %s WHERE number = %s",
+                    "esim = %s, m2m = %s, fee = %s, DescTarif = %s WHERE number = %s",
                     [company_id, origin, insert_date, f"{now} - Modified by {user}\n{ui_notes}",
-                     imei, pin, puk, pin2, puk2, extension, obs, esim, m2m, code],
+                     imei, pin, puk, pin2, puk2, extension, obs, esim, m2m, fee, desc_tarif, code],
                 )
         messages.success(request, "Mobile line saved successfully.")
     except Exception:
@@ -3180,7 +3186,7 @@ def api_get_line(request):
         cur.execute(
             "SELECT a.origin, b.name as company_name, a.company, a.insert_date, a.pin, a.pin2, a.puk, "
             "a.puk2, a.imei, a.extension, a.obs, c.serial_number, d.name as staff_name, a.fecha_baja, "
-            "a.esim, a.M2M, a.notes "
+            "a.esim, a.M2M, a.notes, a.fee, a.DescTarif "
             "FROM oees_mobile_lines a "
             "LEFT JOIN oees_companies b ON a.company = b.id_company "
             "LEFT JOIN oees_mobile_phones c ON a.mobile = c.id_mobile_phone "
@@ -3209,6 +3215,7 @@ def api_get_line(request):
         'has_phone': bool(r['serial_number']),
         'baja': (baja.strftime('%d-%m-%Y') if hasattr(baja, 'strftime') else (str(baja) if baja else '')),
         'notes': r['notes'] or '',
+        'fee': r['fee'] or 0, 'desc_tarif': r['DescTarif'] or '',
     }
     return JsonResponse({'success': True, 'exists': True, 'data': data})
 

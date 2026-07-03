@@ -346,6 +346,8 @@ class OeesMobileLines(models.Model):
     m2m = models.IntegerField(db_column='M2M')  # Field name made lowercase.
     fecha_baja = models.DateField(blank=True, null=True)
     obs = models.TextField()
+    fee = models.FloatField(default=0)
+    desc_tarif = models.CharField(max_length=255, blank=True, null=True, db_column='DescTarif')
 
     def __str__(self):
         return f"Number: {self.number} - Origin: {self.origin}"

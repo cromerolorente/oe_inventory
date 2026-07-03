@@ -58,6 +58,8 @@ function fillLine(d) {
     document.getElementById('input-card').value = d.card || '';
     document.getElementById('input-extension').value = d.extension || '';
     document.getElementById('input-obs').value = d.obs || '';
+    document.getElementById('input-fee').value = (d.fee != null ? d.fee : 0);
+    document.getElementById('input-desc-tarif').value = d.desc_tarif || '';
     document.getElementById('input-person').value = d.person || '';
     document.getElementById('input-device-sn').value = d.phone_serial || '';
     document.getElementById('textarea-notes').value = d.notes || '';

@@ -775,6 +775,7 @@ class MobileLinesScreenTests(TestCase):
         self.line = OeesMobileLines.objects.create(
             number='600100200', imei='', pin='', puk='', pin2='', puk2='',
             extension='', esim=0, m2m=0, obs='', origin='Vodafone',
+            fee=12.5, desc_tarif='Plan 20GB',
         )
 
     def test_mobile_lines_requires_login(self):
@@ -795,6 +796,8 @@ class MobileLinesScreenTests(TestCase):
         data = response.json()
         self.assertTrue(data['exists'])
         self.assertEqual(data['data']['origin'], 'Vodafone')
+        self.assertEqual(data['data']['fee'], 12.5)
+        self.assertEqual(data['data']['desc_tarif'], 'Plan 20GB')
 
     def test_stock_phones_lists_phones_without_sim(self):
         # The phone dropdown for SIM assignment must list phones WITHOUT a SIM
@@ -836,9 +839,12 @@ class MobileLinesScreenTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.post(reverse('frm_mobile_lines'), {
             'action': 'save', 'number': '600999888', 'origin': 'Orange', 'pin': '1234',
+            'fee': '9,99', 'desc_tarif': 'Plan 50GB',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(OeesMobileLines.objects.filter(number='600999888').exists())
+        saved = OeesMobileLines.objects.get(number='600999888')
+        self.assertEqual(saved.fee, 9.99)
+        self.assertEqual(saved.desc_tarif, 'Plan 50GB')
 
     def test_cancel_sets_baja(self):
         self.client.force_login(self.user)

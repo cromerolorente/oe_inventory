@@ -74,13 +74,21 @@
                     </div>
 
                     <div class="row">
-                        <div class="col-8">
+                        <div class="col-4">
                             <label class="form-label small mb-1">CARD (IMEI)</label>
                             <input type="text" id="input-card" name="card" class="form-control form-control-sm mb-2" maxlength="30">
                         </div>
-                        <div class="col-4">
+                        <div class="col-2">
                             <label class="form-label small mb-1">Extension</label>
                             <input type="text" id="input-extension" name="extension" class="form-control form-control-sm mb-2" maxlength="10">
+                        </div>
+                        <div class="col-2">
+                            <label class="form-label small mb-1">Fee (€)</label>
+                            <input type="number" step="0.01" min="0" id="input-fee" name="fee" class="form-control form-control-sm mb-2" value="0" maxlength="10">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">Tariff description</label>
+                            <input type="text" id="input-desc-tarif" name="desc_tarif" class="form-control form-control-sm mb-2" maxlength="255">
                         </div>
                     </div>
 
@@ -246,6 +254,7 @@
                     <tr>
                         <th>Number</th><th>Company</th><th>Origin</th><th>PIN</th><th>PUK</th><th>PIN2</th><th>PUK2</th>
                         <th>IMEI</th><th>Date</th><th>Mobile</th><th>Person</th><th class="text-center">Active</th><th>Ext</th>
+                        <th class="text-end">Fee</th><th>Tariff</th>
                         <th class="text-center">eSIM</th><th class="text-center">M2M</th><th class="text-center">B</th><th>Obs</th>
                     </tr>
                 </thead>
@@ -265,6 +274,8 @@
                         <td>{{ r.person }}</td>
                         <td class="text-center">{% if r.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                         <td>{{ r.extension }}</td>
+                        <td class="text-end">{{ r.fee|default:0|floatformat:2 }} €</td>
+                        <td>{{ r.desc_tarif }}</td>
                         <td class="text-center">{% if r.esim %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
                         <td class="text-center">{% if r.m2m %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
                         <td class="text-center">{% if r.baja %}<i class="bi bi-x-lg text-danger"></i>{% endif %}</td>
@@ -279,7 +290,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/mobile_lines.js' %}?v=2"></script>
+<script src="{% static 'js/mobile_lines.js' %}?v=3"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}
