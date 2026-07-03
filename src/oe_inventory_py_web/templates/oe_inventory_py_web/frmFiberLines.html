@@ -98,17 +98,21 @@
                         </div>
 
                         <div class="row align-items-end">
-                            <div class="col-4">
+                            <div class="col-3">
                                 <label class="form-label small mb-1">Start Date</label>
                                 <input type="date" id="input-start-date" name="start_date" class="form-control form-control-sm mb-2">
                             </div>
-                            <div class="col-4">
+                            <div class="col-3">
                                 <label class="form-label small mb-1">Down Date</label>
                                 <input type="date" id="input-down-date" name="down_date" class="form-control form-control-sm mb-2">
                             </div>
                             <div class="col-2">
                                 <label class="form-label small mb-1">Fixed IP</label>
                                 <input type="text" id="input-ip" name="ip_fixed" class="form-control form-control-sm mb-2" maxlength="14">
+                            </div>
+                            <div class="col-2">
+                                <label class="form-label small mb-1">Fee (€)</label>
+                                <input type="number" step="0.01" min="0" id="input-fee" name="fee" class="form-control form-control-sm mb-2" value="0">
                             </div>
                             <div class="col-2">
                                 <div class="form-check form-switch mb-2">
@@ -212,7 +216,7 @@
                             <th>ID</th><th>Description</th><th>Provider</th><th>Delegation</th><th>Order</th>
                             <th>Service Code</th><th>Access</th><th>Router</th><th>Addressing</th>
                             <th>WIFI1</th><th>WIFI2</th><th class="text-center">Active</th>
-                            <th>Start Date</th><th>Down Date</th><th>Fixed IP</th>
+                            <th>Start Date</th><th>Down Date</th><th>Fixed IP</th><th class="text-end">Fee</th>
                         </tr>
                     </thead>
                     <tbody id="body-fiber-list">
@@ -233,6 +237,7 @@
                             <td>{{ f.fecha_inicio|date:'d-m-Y' }}</td>
                             <td>{{ f.fecha_baja|date:'d-m-Y' }}</td>
                             <td>{{ f.ip_fija|default:'' }}</td>
+                            <td class="text-end">{{ f.fee|default:0|floatformat:2 }} €</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -244,7 +249,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/fiber.js' %}"></script>
+<script src="{% static 'js/fiber.js' %}?v=2"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

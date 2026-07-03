@@ -232,6 +232,7 @@ class OeesFiberLines(models.Model):
     fecha_inicio = models.DateField()
     fecha_baja = models.DateField(blank=True, null=True)
     ip_fija = models.CharField(max_length=14, blank=True, null=True)
+    fee = models.FloatField(default=0)
     notes = models.TextField()
 
     def __str__(self):

@@ -1715,7 +1715,7 @@ def _fiber_export_excel():
     ws = wb.active
     ws.title = "Fiber Lines"
     ws.append(['ID', 'Description', 'Provider', 'Delegation', 'Order', 'Service Code', 'Access',
-               'Router', 'Addressing', 'WIFI1', 'WIFI2', 'Active', 'Start Date', 'Down Date', 'Fixed IP'])
+               'Router', 'Addressing', 'WIFI1', 'WIFI2', 'Active', 'Start Date', 'Down Date', 'Fixed IP', 'Fee'])
     for fl in grid:
         ws.append([
             fl.id_fiber_line, fl.description, fl.proveedor,
@@ -1724,6 +1724,7 @@ def _fiber_export_excel():
             'Yes' if fl.estado else 'No',
             fl.fecha_inicio.strftime('%Y-%m-%d') if fl.fecha_inicio else '',
             fl.fecha_baja.strftime('%Y-%m-%d') if fl.fecha_baja else '', fl.ip_fija or '',
+            fl.fee or 0,
         ])
     wb.save(response)
     return response
@@ -1809,6 +1810,11 @@ def _fiber_save(request):
         except ValueError:
             down_date = None
 
+    try:
+        fee = float((request.POST.get('fee') or '0').replace(',', '.'))
+    except ValueError:
+        fee = 0
+
     fields = {
         'description': description,
         'id_delegation_id': request.POST.get('delegation') or None,
@@ -1824,6 +1830,7 @@ def _fiber_save(request):
         'fecha_inicio': start_date,
         'fecha_baja': down_date,
         'ip_fija': request.POST.get('ip_fixed', '').strip(),
+        'fee': fee,
     }
     now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 
@@ -1924,6 +1931,7 @@ def api_get_fiber(request):
         'start_date': fl.fecha_inicio.strftime('%Y-%m-%d') if fl.fecha_inicio else '',
         'down_date': fl.fecha_baja.strftime('%Y-%m-%d') if fl.fecha_baja else '',
         'ip_fixed': fl.ip_fija or '',
+        'fee': fl.fee or 0,
         'notes': fl.notes or '',
         'incidences': incidences,
         'working_codes': working_codes,

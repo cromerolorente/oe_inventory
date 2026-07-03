@@ -389,7 +389,7 @@ class FiberScreenTests(TestCase):
         self.fiber = OeesFiberLines.objects.create(
             description='Fiber A', proveedor='ISP', orden='O1', codigo_servicio='SC1',
             acceso='acc', router='rt', direccionamiento='addr', wifi1='w1', wifi2='w2',
-            estado=1, fecha_inicio=date(2026, 1, 1), notes='',
+            estado=1, fecha_inicio=date(2026, 1, 1), fee=29.95, notes='',
         )
 
     def test_fiber_requires_login(self):
@@ -410,6 +410,7 @@ class FiberScreenTests(TestCase):
         data = response.json()
         self.assertTrue(data['exists'])
         self.assertEqual(data['data']['description'], 'Fiber A')
+        self.assertEqual(data['data']['fee'], 29.95)
 
     def test_api_get_fiber_not_found(self):
         self.client.force_login(self.user)
@@ -422,9 +423,11 @@ class FiberScreenTests(TestCase):
             'action': 'save', 'description': 'New Fiber', 'provider': 'ISP2', 'order': 'O2',
             'service_code': 'SC2', 'access': 'a', 'router': 'r', 'addressing': 'd',
             'wifi1': '', 'wifi2': '', 'estado': '1', 'start_date': '2026-03-01', 'ip_fixed': '',
+            'fee': '19,90',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(OeesFiberLines.objects.filter(description='New Fiber').exists())
+        saved = OeesFiberLines.objects.get(description='New Fiber')
+        self.assertEqual(saved.fee, 19.90)
 
     def test_save_incidence(self):
         self.client.force_login(self.user)

@@ -46,6 +46,7 @@ function fillFiber(d) {
     document.getElementById('input-start-date').value = d.start_date || '';
     document.getElementById('input-down-date').value = d.down_date || '';
     document.getElementById('input-ip').value = d.ip_fixed || '';
+    document.getElementById('input-fee').value = (d.fee != null ? d.fee : 0);
     document.getElementById('textarea-notes').value = d.notes || '';
     syncCode();
     renderIncidences(d.incidences || []);
