@@ -161,7 +161,7 @@
                                 <td>{{ item.origin|default:'-' }}</td>
                                 <td>{{ item.date_obj|date:'d-m-Y' }}</td>
                                 <td>{% if item.person %}{{ item.person }}{% else %}-{% endif %}</td>
-                                <td class="text-center">{% if item.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                                <td class="text-center" data-order="{% if item.active %}1{% else %}0{% endif %}">{% if item.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                                 <td>{{ item.number|default:'-' }}</td>
                                 <td>{{ item.imei|default:'-' }}</td>
                                 <td>{{ item.obs|default:'-' }}</td>

@@ -252,7 +252,7 @@
             <table id="tabla-lineas" class="table table-sm table-hover align-middle border-bottom">
                 <thead class="table-dark sticky-top">
                     <tr>
-                        <th>Number</th><th>Company</th><th>Origin</th><th>PIN</th><th>PUK</th><th>PIN2</th><th>PUK2</th>
+                        <th>Number</th><th class="text-center">Act</th><th>Company</th><th>Origin</th><th>PIN</th><th>PUK</th><th>PIN2</th><th>PUK2</th>
                         <th>IMEI</th><th>Date</th><th>Mobile</th><th>Person</th><th class="text-center">Active</th><th>Ext</th>
                         <th class="text-end">Fee</th><th>Tariff</th>
                         <th class="text-center">eSIM</th><th class="text-center">M2M</th><th class="text-center">B</th><th>Obs</th>
@@ -262,6 +262,7 @@
                     {% for r in grid_rows %}
                     <tr class="line-row" style="cursor: pointer;" data-number="{{ r.number }}">
                         <td>{{ r.number }}</td>
+                        <td class="text-center" data-order="{% if r.baja %}0{% else %}1{% endif %}">{% if r.baja %}<i class="bi bi-x-circle text-muted"></i>{% else %}<i class="bi bi-check-circle-fill text-success"></i>{% endif %}</td>
                         <td>{{ r.company }}</td>
                         <td>{{ r.origin }}</td>
                         <td>{{ r.pin }}</td>
@@ -272,13 +273,13 @@
                         <td>{{ r.date|date:'d-m-Y' }}</td>
                         <td>{{ r.phone }}</td>
                         <td>{{ r.person }}</td>
-                        <td class="text-center">{% if r.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                        <td class="text-center" data-order="{% if r.active %}1{% else %}0{% endif %}">{% if r.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                         <td>{{ r.extension }}</td>
                         <td class="text-end">{{ r.fee|default:0|floatformat:2 }} €</td>
                         <td>{{ r.desc_tarif }}</td>
-                        <td class="text-center">{% if r.esim %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
-                        <td class="text-center">{% if r.m2m %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
-                        <td class="text-center">{% if r.baja %}<i class="bi bi-x-lg text-danger"></i>{% endif %}</td>
+                        <td class="text-center" data-order="{% if r.esim %}1{% else %}0{% endif %}">{% if r.esim %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
+                        <td class="text-center" data-order="{% if r.m2m %}1{% else %}0{% endif %}">{% if r.m2m %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
+                        <td class="text-center" data-order="{% if r.baja %}1{% else %}0{% endif %}">{% if r.baja %}<i class="bi bi-x-lg text-danger"></i>{% endif %}</td>
                         <td>{{ r.obs }}</td>
                     </tr>
                     {% endfor %}
