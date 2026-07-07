@@ -170,7 +170,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 };
                 const total = api.column(14, { search: 'applied' }).data().reduce((a, b) => a + toNum(b), 0);
                 const cell = document.getElementById('foot-fee');
-                if (cell) cell.textContent = total.toFixed(2) + ' €';
+                if (cell) {
+                    cell.textContent = total.toLocaleString('en-US', {
+                        minimumFractionDigits: 2, maximumFractionDigits: 2,
+                    }) + ' €';
+                }
             }
         });
     }
