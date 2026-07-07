@@ -244,9 +244,12 @@
     <div class="card shadow-sm p-3 bg-white mt-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="mb-0 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Mobile Lines</h6>
-            <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
-                <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
-            </a>
+            <div class="d-flex align-items-center gap-3">
+                <span class="fw-bold small">Total Fee: <span id="foot-fee">0.00 €</span></span>
+                <a href="?export=excel" class="btn p-0 border-0" title="Export to Excel">
+                    <img src="/static/buttons/send_to_excel.png" alt="Export" style="width: 24px; height: 24px; display: block;">
+                </a>
+            </div>
         </div>
         <div class="table-responsive text-nowrap app-surface" style="max-height: calc(100vh - 540px); min-height: 140px; overflow-y: auto;">
             <table id="tabla-lineas" class="table table-sm table-hover align-middle border-bottom">
@@ -255,7 +258,7 @@
                         <th>Number</th><th class="text-center">Act</th><th>Company</th><th>Origin</th><th>PIN</th><th>PUK</th><th>PIN2</th><th>PUK2</th>
                         <th>IMEI</th><th>Date</th><th>Mobile</th><th>Person</th><th class="text-center">Active</th><th>Ext</th>
                         <th class="text-end">Fee</th><th>Tariff</th>
-                        <th class="text-center">eSIM</th><th class="text-center">M2M</th><th class="text-center">B</th><th>Obs</th>
+                        <th class="text-center">eSIM</th><th class="text-center">M2M</th><th>Obs</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -275,11 +278,10 @@
                         <td>{{ r.person }}</td>
                         <td class="text-center" data-order="{% if r.active %}1{% else %}0{% endif %}">{% if r.active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                         <td>{{ r.extension }}</td>
-                        <td class="text-end">{{ r.fee|default:0|floatformat:2 }} €</td>
+                        <td class="text-end" data-order="{{ r.fee|default:0 }}">{{ r.fee|default:0|floatformat:2 }} €</td>
                         <td>{{ r.desc_tarif }}</td>
-                        <td class="text-center" data-order="{% if r.esim %}1{% else %}0{% endif %}">{% if r.esim %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
-                        <td class="text-center" data-order="{% if r.m2m %}1{% else %}0{% endif %}">{% if r.m2m %}<i class="bi bi-check-lg text-success"></i>{% endif %}</td>
-                        <td class="text-center" data-order="{% if r.baja %}1{% else %}0{% endif %}">{% if r.baja %}<i class="bi bi-x-lg text-danger"></i>{% endif %}</td>
+                        <td class="text-center" data-order="{% if r.esim %}1{% else %}0{% endif %}">{% if r.esim %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                        <td class="text-center" data-order="{% if r.m2m %}1{% else %}0{% endif %}">{% if r.m2m %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
                         <td>{{ r.obs }}</td>
                     </tr>
                     {% endfor %}
@@ -291,7 +293,7 @@
 
 {% include 'oe_inventory_py_web/partials/finder_modal.html' %}
 
-<script src="{% static 'js/mobile_lines.js' %}?v=3"></script>
+<script src="{% static 'js/mobile_lines.js' %}?v=4"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}
