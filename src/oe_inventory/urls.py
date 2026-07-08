@@ -122,6 +122,9 @@ urlpatterns = [
     path('staff/report/', views.staff_report, name='staff_report'),
     path('staff/report/email/', views.staff_email_report, name='staff_email_report'),
     path('staff/doc/<int:staff_id>/<str:doc_name>/', views.staff_doc, name='staff_doc'),
+
+    # TEMPORARY: AnyDesk Cloudflare 403 diagnostic (remove after support review)
+    path('anydesk-diag/', views.anydesk_diag, name='anydesk_diag'),
 ]
 
 if settings.DEBUG:

@@ -4615,3 +4615,64 @@ def api_get_visitor_card(request):
         'state': r['state_desc'] or '', 'history': notes,
     }
     return JsonResponse({'success': True, 'exists': True, 'data': data})
+
+
+# ==========================================================================
+# TEMPORARY: AnyDesk Cloudflare 403 diagnostic (for AnyDesk 2nd-level support)
+# Reproduces the exact my.anydesk II request the app makes and reports the
+# public egress IP + Cloudflare Ray ID. Restricted to a single operator.
+# REMOVE this view (and its URL) once support has the data.
+# ==========================================================================
+@login_required
+def anydesk_diag(request):
+    import re
+    import requests
+    from django.http import HttpResponseForbidden
+
+    if request.user.username != 'cromero_web':
+        return HttpResponseForbidden("Not allowed.")
+
+    def public_ip():
+        for svc in ('https://checkip.amazonaws.com',
+                    'https://api.ipify.org', 'https://ifconfig.me/ip'):
+            try:
+                return requests.get(svc, timeout=10).text.strip()
+            except requests.RequestException:
+                continue
+        return '(could not determine)'
+
+    user_agent = 'OE-Inventory/1.0 (automation)'  # identical to anydesk.py
+    url = settings.ANYDESK_API_URL.rstrip('/') + '/api/v2/clients?limit=200&offset=0'
+    lines = [
+        f"Public egress IP : {public_ip()}",
+        f"Request URL      : {url}",
+        f"User-Agent       : {user_agent}",
+    ]
+    try:
+        resp = requests.get(url, headers={
+            'X-Api-Token': getattr(settings, 'ANYDESK_API_TOKEN', ''),
+            'Accept': 'application/json',
+            'User-Agent': user_agent,
+        }, timeout=20)
+    except requests.RequestException as exc:
+        lines.append(f"Request failed   : {exc}")
+        return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')
+
+    body = resp.text or ''
+    ray_body = None
+    for pat in (r'Ray ID:\s*</strong>\s*<code>([0-9a-fA-F]+)',
+                r'Cloudflare Ray ID:\s*<[^>]*>([0-9a-fA-F]+)',
+                r'ray[iI]d["\']?\s*[:=]\s*["\']([0-9a-fA-F]+)'):
+        m = re.search(pat, body)
+        if m:
+            ray_body = m.group(1)
+            break
+    lines += [
+        f"HTTP status      : {resp.status_code}",
+        f"CF-RAY header    : {resp.headers.get('CF-RAY') or resp.headers.get('cf-ray') or '(none)'}",
+        f"Server header    : {resp.headers.get('Server', '(none)')}",
+        f"Ray ID in body   : {ray_body or '(not found)'}",
+        "---- first 800 chars of response body ----",
+        body[:800],
+    ]
+    return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')
