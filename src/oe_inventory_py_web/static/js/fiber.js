@@ -135,7 +135,26 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (window.jQuery && jQuery.fn.DataTable) {
-        jQuery('#tabla-fibra').DataTable({ pageLength: 50, ordering: true, autoWidth: false });
+        jQuery('#tabla-fibra').DataTable({
+            pageLength: 50, ordering: true, autoWidth: false,
+            // Sum the Fee column (index 15) for the rows matching the current
+            // search/filter, and show it in the footer total cell.
+            footerCallback: function () {
+                const api = this.api();
+                const toNum = v => {
+                    if (typeof v === 'number') return v;
+                    const n = parseFloat(String(v).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+                    return isNaN(n) ? 0 : n;
+                };
+                const total = api.column(15, { search: 'applied' }).data().reduce((a, b) => a + toNum(b), 0);
+                const cell = document.getElementById('foot-fee');
+                if (cell) {
+                    cell.textContent = total.toLocaleString('en-US', {
+                        minimumFractionDigits: 2, maximumFractionDigits: 2,
+                    }) + ' €';
+                }
+            }
+        });
     }
 
     const pre = document.getElementById('preselected-fiber').value;
