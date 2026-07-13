@@ -4676,3 +4676,68 @@ def anydesk_diag(request):
         body[:800],
     ]
     return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')
+
+
+# ==========================================================================
+# TEMPORARY: Omada controllers connectivity diagnostic (run from AWS)
+# For each configured controller: public egress IP, raw TCP reachability of
+# base_url host:port, and whether the Open API auth + site read succeeds.
+# Used to verify the Madrid controller once its router port is opened.
+# Restricted to a single operator. REMOVE this view (and its URL) afterwards.
+# ==========================================================================
+@login_required
+def omada_diag(request):
+    import socket
+    import time
+    from urllib.parse import urlparse
+    from django.http import HttpResponseForbidden
+    from . import omada
+
+    if request.user.username != 'cromero_web':
+        return HttpResponseForbidden("Not allowed.")
+
+    def public_ip():
+        import requests
+        for svc in ('https://checkip.amazonaws.com',
+                    'https://api.ipify.org', 'https://ifconfig.me/ip'):
+            try:
+                return requests.get(svc, timeout=10).text.strip()
+            except requests.RequestException:
+                continue
+        return '(could not determine)'
+
+    def tcp_check(host, port):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(6)
+        t0 = time.time()
+        try:
+            s.connect((host, port))
+            return f"TCP OPEN ({time.time() - t0:.1f}s)"
+        except Exception as exc:
+            return f"{type(exc).__name__}: {exc} ({time.time() - t0:.1f}s)"
+        finally:
+            s.close()
+
+    lines = [f"Public egress IP : {public_ip()}", ""]
+    controllers = omada.controllers()
+    if not controllers:
+        lines.append("No Omada controllers configured.")
+        return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')
+
+    for i, c in enumerate(controllers, 1):
+        base = c['base_url']
+        parsed = urlparse(base)
+        host = parsed.hostname or ''
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        lines.append(f"--- Controller #{i}: {base} ---")
+        lines.append(f"  TCP {host}:{port} -> {tcp_check(host, port)}")
+        try:
+            rows = omada.site_overview(c)
+            lines.append("  Open API: OK (auth + read). Sites:")
+            for r in rows:
+                lines.append(f"    - {r['site']}: devices={r['devices']} clients={r['clients']}")
+        except Exception as exc:
+            lines.append(f"  Open API: FAIL: {type(exc).__name__}: {exc}")
+        lines.append("")
+
+    return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')

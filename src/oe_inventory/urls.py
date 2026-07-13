@@ -125,6 +125,9 @@ urlpatterns = [
 
     # TEMPORARY: AnyDesk Cloudflare 403 diagnostic (remove after support review)
     path('anydesk-diag/', views.anydesk_diag, name='anydesk_diag'),
+
+    # TEMPORARY: Omada controllers connectivity diagnostic (remove after check)
+    path('omada-diag/', views.omada_diag, name='omada_diag'),
 ]
 
 if settings.DEBUG:
