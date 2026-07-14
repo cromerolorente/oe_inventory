@@ -162,6 +162,16 @@ def compute_and_store():
             'net_alerts': net_alerts, 'anydesk_alerts': anydesk_alerts,
             'video_rooms_alerts': video_rooms_alerts}
     _store(data)
+
+    # Pull incorporation-preference replies from the IMAP mailbox and apply them.
+    # Isolated so a mailbox outage never affects the status refresh.
+    try:
+        from . import incorporation_mail
+        if incorporation_mail.imap_configured():
+            incorporation_mail.process_inbox()
+    except Exception:
+        logger.exception("Incorporation inbox processing failed")
+
     return data
 
 

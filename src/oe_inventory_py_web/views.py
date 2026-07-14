@@ -27,7 +27,7 @@ from .models import (
     OeesLicenses, OeesMobileLines, OeesMobilePhones, OeesOrders, OeesPrinters,
     OeesProvinces, OeesStaff, OeesUnderRepair,
 )
-from .reports import build_staff_inventory_pdf
+from .reports import build_staff_inventory_pdf, build_incorporation_form_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -2341,6 +2341,8 @@ def _incorporation_rows(qs):
             'department': r.department or '',
             'delegation': r.delegation.delegation if r.delegation else '',
             'date': r.insert_date,
+            'sweatshirt': r.sweatshirt_size or '',
+            'email_processed': r.email_processed or 0,
             'flags': [r.win, r.mba, r.mbp, r.phone, r.screen, r.mouse, r.keyboard,
                       r.cordedh, r.cordlessh, r.usbchub, r.pdf, r.acad, r.send, r.receive],
         })
@@ -2392,6 +2394,7 @@ def frm_incorporations_view(request):
             'send': _incorporation_send,
             'receive': _incorporation_receive,
             'complete': _incorporation_complete,
+            'preferences': _incorporation_preferences,
         }
         handler = handlers.get(action)
         if handler:
@@ -2444,8 +2447,13 @@ def _incorporation_save(request):
 
     laptop = request.POST.get('laptop', '')
     headset = request.POST.get('headset', '')
+    # Only these sweatshirt sizes are valid; anything else is stored as empty.
+    sweatshirt = request.POST.get('sweatshirt_size', '').strip().upper()
+    if sweatshirt not in {'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'}:
+        sweatshirt = ''
     common = {
-        'name': name, 'company_id': company_id, 'department': department,
+        'name': name, 'email': request.POST.get('email', '').strip() or None,
+        'company_id': company_id, 'department': department,
         'delegation_id': delegation_id, 'insert_date': insert_date,
         'direccion': request.POST.get('direccion', '').strip(),
         'win': 1 if laptop == 'win' else 0,
@@ -2457,6 +2465,7 @@ def _incorporation_save(request):
         'mouse': _chk(request, 'mouse'), 'keyboard': _chk(request, 'keyboard'),
         'descartado': _chk(request, 'descartado'), 'usbchub': _chk(request, 'usbchub'),
         'pdf': _chk(request, 'pdf'), 'acad': _chk(request, 'acad'),
+        'sweatshirt_size': sweatshirt or None,
     }
     now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 
@@ -2547,6 +2556,76 @@ def _incorporation_complete(request):
     return redirect('frm_incorporations')
 
 
+def _incorporation_preferences(request):
+    """Build the editable preferences PDF for this incorporation and email it to
+    the person's own email address (oees_incorporations.email)."""
+    code = request.POST.get('code', '').strip()
+    rec = (OeesIncorporations.objects.select_related('company', 'delegation')
+           .filter(id=code).first())
+    if not rec:
+        messages.error(request, "Incorporation not found.")
+        return redirect('frm_incorporations')
+
+    recipient = (rec.email or '').strip()
+    if not recipient:
+        messages.error(request, "This incorporation has no email address. Add one and save first.")
+        return redirect(f"{reverse('frm_incorporations')}?inc={code}")
+    if not getattr(settings, 'RESEND_API_KEY', ''):
+        messages.error(request, "Email is not configured. Set RESEND_API_KEY in .env.")
+        return redirect(f"{reverse('frm_incorporations')}?inc={code}")
+
+    laptop = 'WIN Laptop' if rec.win else ('MBA Laptop' if rec.mba else ('MBP Laptop' if rec.mbp else 'None'))
+    headset = 'Corded' if rec.cordedh else ('Cordless' if rec.cordlessh else 'None')
+    data = {
+        'id': rec.id, 'name': rec.name or '', 'email': recipient,
+        'company': rec.company.name if rec.company else '',
+        'department': rec.department or '',
+        'delegation': rec.delegation.delegation if rec.delegation else '',
+        'date': rec.insert_date.strftime('%d-%m-%Y') if rec.insert_date else '',
+        'address': rec.direccion or '', 'laptop': laptop, 'headset': headset,
+        'is_remote': _is_remote_delegation(rec.delegation),
+        'phone': rec.phone, 'mouse': rec.mouse, 'screen': rec.screen,
+        'keyboard': rec.keyboard, 'usbchub': rec.usbchub, 'pdf': rec.pdf, 'acad': rec.acad,
+        'sweatshirt_size': rec.sweatshirt_size or '',
+    }
+    try:
+        pdf = build_incorporation_form_pdf(data)
+        name = rec.name or ''
+        body = (
+            f"Hello {name},\n\n"
+            "Please find attached your incorporation preferences form. Fill it in "
+            "and return it to us.\n\n"
+            "Best regards,\nPeople Team.\n\n"
+            "----------------------------------------\n\n"
+            f"Hola {name},\n\n"
+            "Adjuntamos tu formulario de preferencias de incorporación. Rellénalo "
+            "y devuélvenoslo.\n\n"
+            "Un saludo,\nPeople Team."
+        )
+        email = EmailMessage(
+            subject="Incorporation Preferences",
+            body=body,
+            to=[recipient],
+        )
+        email.attach(
+            f"Incorporation_Preferences_{(rec.name or 'form').replace(' ', '_')}.pdf",
+            pdf, 'application/pdf')
+        email.send()
+
+        # Audit: prepend a line to notes with the send time, recipient and user,
+        # and mark the record as "preferences PDF emailed" (state 1).
+        now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        note = f"{now} - Sent preferences to {recipient} by {request.user.username}"
+        rec.notes = f"{note}\n{rec.notes or ''}".strip()
+        rec.email_processed = 1
+        rec.save(update_fields=['notes', 'email_processed'])
+        messages.success(request, f"Preferences form sent to {recipient}.")
+    except Exception:
+        logger.exception("Error sending incorporation preferences %s", code)
+        messages.error(request, "Error sending the email. Check the email configuration.")
+    return redirect(f"{reverse('frm_incorporations')}?inc={code}")
+
+
 @login_required
 def api_get_incorporation(request):
     """AJAX API: look up an incorporation record to fill the form."""
@@ -2561,13 +2640,14 @@ def api_get_incorporation(request):
     laptop = 'win' if r.win else ('mba' if r.mba else ('mbp' if r.mbp else ''))
     headset = 'corded' if r.cordedh else ('cordless' if r.cordlessh else '')
     data = {
-        'id': r.id, 'name': r.name or '', 'company_id': r.company_id or '',
+        'id': r.id, 'name': r.name or '', 'email': r.email or '', 'company_id': r.company_id or '',
         'department': r.department or '', 'delegation_id': r.delegation_id or '',
         'date': r.insert_date.strftime('%Y-%m-%d') if r.insert_date else '',
         'direccion': r.direccion or '', 'laptop': laptop, 'headset': headset,
         'phone': 1 if r.phone else 0, 'screen': 1 if r.screen else 0, 'mouse': 1 if r.mouse else 0,
         'keyboard': 1 if r.keyboard else 0, 'descartado': 1 if r.descartado else 0,
         'usbchub': 1 if r.usbchub else 0, 'pdf': 1 if r.pdf else 0, 'acad': 1 if r.acad else 0,
+        'sweatshirt_size': r.sweatshirt_size or '',
         'notes': r.notes or '', 'is_remote': _is_remote_delegation(r.delegation),
     }
     return JsonResponse({'success': True, 'exists': True, 'data': data})

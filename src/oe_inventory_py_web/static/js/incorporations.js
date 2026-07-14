@@ -38,6 +38,7 @@ function buscarIncorporacionAjax() {
 function fillIncorporation(d) {
     document.getElementById('input-code').value = d.id;
     document.getElementById('input-name').value = d.name || '';
+    document.getElementById('input-email').value = d.email || '';
     document.getElementById('select-company').value = d.company_id || '';
     document.getElementById('input-department').value = d.department || '';
     document.getElementById('select-delegation').value = d.delegation_id || '';
@@ -50,6 +51,7 @@ function fillIncorporation(d) {
     setCheck('chk-screen', d.screen);
     setCheck('chk-mouse', d.mouse);
     setCheck('chk-keyboard', d.keyboard);
+    document.getElementById('select-sweatshirt').value = d.sweatshirt_size || '';
     setCheck('chk-descartado', d.descartado);
     setCheck('chk-usbchub', d.usbchub);
     setCheck('chk-pdf', d.pdf);
@@ -101,6 +103,22 @@ function recibirIncorporacion() {
     }
     if (!confirm('Do you really want to mark the receipt of the devices?')) return;
     document.getElementById('input-action').value = 'receive';
+    syncCode();
+    document.getElementById('form-inc').submit();
+}
+
+function preferenciasIncorporacion() {
+    if (!currentCode()) {
+        Swal.fire({ title: 'OE Inventory', text: 'Load an incorporation first.', icon: 'info', confirmButtonColor: '#FF48D8' });
+        return;
+    }
+    const email = document.getElementById('input-email').value.trim();
+    if (!email) {
+        Swal.fire({ title: 'OE Inventory', text: 'This incorporation has no email address. Add one and Save first.', icon: 'warning', confirmButtonColor: '#FF48D8' });
+        return;
+    }
+    if (!confirm(`Send the editable preferences form to ${email}?`)) return;
+    document.getElementById('input-action').value = 'preferences';
     syncCode();
     document.getElementById('form-inc').submit();
 }

@@ -1,7 +1,8 @@
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.contrib.messages import get_messages
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import (
@@ -653,7 +654,8 @@ class IncorporationsScreenTests(TestCase):
             name='New Hire', department='IT', insert_date=date(2026, 1, 1),
             company_id=self.company.id_company, delegation_id=self.deleg.id_delegation,
             cordedh=0, cordlessh=0, usbchub=0, pdf=0, acad=0,
-            incorporated=0, send=0, receive=0, descartado=0,
+            incorporated=0, send=0, receive=0, descartado=0, sweatshirt_size='L',
+            email='ada@example.com',
         )
 
     def test_incorporations_requires_login(self):
@@ -674,6 +676,8 @@ class IncorporationsScreenTests(TestCase):
         data = response.json()
         self.assertTrue(data['exists'])
         self.assertEqual(data['data']['name'], 'New Hire')
+        self.assertEqual(data['data']['sweatshirt_size'], 'L')
+        self.assertEqual(data['data']['email'], 'ada@example.com')
 
     def test_api_get_incorporation_not_found(self):
         self.client.force_login(self.user)
@@ -700,9 +704,109 @@ class IncorporationsScreenTests(TestCase):
             'action': 'save', 'name': 'Bob New', 'company': str(self.company.id_company),
             'department': 'IT', 'delegation': str(self.deleg.id_delegation),
             'insert_date': '2026-05-01', 'laptop': 'win', 'phone': '1',
+            'sweatshirt_size': 'XL', 'email': 'bob@example.com',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(OeesIncorporations.objects.filter(name='Bob New', win=1, phone=1).exists())
+        saved = OeesIncorporations.objects.get(name='Bob New', win=1, phone=1)
+        self.assertEqual(saved.sweatshirt_size, 'XL')
+        self.assertEqual(saved.email, 'bob@example.com')
+
+    def test_build_incorporation_pdf_bytes(self):
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        pdf = build_incorporation_form_pdf({
+            'name': 'New Hire', 'email': 'ada@example.com', 'sweatshirt_size': 'L',
+            'phone': 1, 'keyboard': 1,
+        })
+        self.assertTrue(pdf.startswith(b'%PDF'))
+        self.assertGreater(len(pdf), 1000)
+
+    def test_build_incorporation_pdf_without_size(self):
+        # Empty sweatshirt size used to crash reportlab's choice (falsy value).
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        pdf = build_incorporation_form_pdf({
+            'name': 'No Size', 'email': 'ns@example.com', 'sweatshirt_size': '',
+        })
+        self.assertTrue(pdf.startswith(b'%PDF'))
+
+    def test_apply_pdf_round_trip_updates_record(self):
+        # Build the editable PDF, then read it back and apply it to the record:
+        # the editable fields must be updated and an audit line prepended.
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        from oe_inventory_py_web import incorporation_mail
+        rec = OeesIncorporations.objects.create(
+            name='Round Trip', department='IT', insert_date=date(2026, 3, 1),
+            company_id=self.company.id_company, delegation_id=self.deleg.id_delegation,
+            cordedh=0, cordlessh=0, usbchub=0, pdf=1, acad=1, mouse=0,
+            keyboard=0, phone=1, screen=1, incorporated=0, send=0, receive=0,
+            descartado=0, sweatshirt_size='S',
+        )
+        pdf = build_incorporation_form_pdf({
+            'id': rec.id, 'name': rec.name, 'email': 'hire@example.com',
+            'usbchub': 1, 'pdf': 0, 'mouse': 1, 'acad': 0, 'keyboard': 1,
+            'sweatshirt_size': 'XXL',
+        })
+        self.assertTrue(incorporation_mail.apply_pdf(pdf, 'hire@example.com'))
+
+        rec.refresh_from_db()
+        self.assertEqual(rec.usbchub, 1)
+        self.assertEqual(rec.pdf, 0)
+        self.assertEqual(rec.mouse, 1)
+        self.assertEqual(rec.acad, 0)
+        self.assertEqual(rec.keyboard, 1)
+        self.assertEqual(rec.sweatshirt_size, 'XXL')
+        # Phone/Screen are not in the PDF, so they must be left untouched.
+        self.assertEqual(rec.phone, 1)
+        self.assertEqual(rec.screen, 1)
+        self.assertIn('Received preferences from hire@example.com automatically', rec.notes)
+        self.assertEqual(rec.email_processed, 2)
+
+    def test_apply_pdf_unknown_id_is_ignored(self):
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        from oe_inventory_py_web import incorporation_mail
+        pdf = build_incorporation_form_pdf({'id': 99999999, 'name': 'Ghost'})
+        self.assertFalse(incorporation_mail.apply_pdf(pdf, 'x@example.com'))
+
+    def test_preferences_requires_email(self):
+        # An incorporation without an email address cannot be sent the form.
+        no_email = OeesIncorporations.objects.create(
+            name='No Mail', department='IT', insert_date=date(2026, 2, 1),
+            company_id=self.company.id_company, delegation_id=self.deleg.id_delegation,
+            cordedh=0, cordlessh=0, usbchub=0, pdf=0, acad=0,
+            incorporated=0, send=0, receive=0, descartado=0,
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_incorporations'), {
+            'action': 'preferences', 'code': str(no_email.id),
+        })
+        self.assertEqual(response.status_code, 302)
+        msgs = [m.message for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any('email' in m.lower() for m in msgs))
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+                       RESEND_API_KEY='test-key')
+    def test_preferences_send_updates_notes(self):
+        from django.core import mail
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_incorporations'), {
+            'action': 'preferences', 'code': str(self.inc.id),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['ada@example.com'])
+        self.inc.refresh_from_db()
+        self.assertIn('Sent preferences to ada@example.com by inc_user', self.inc.notes)
+        self.assertEqual(self.inc.email_processed, 1)
+
+    def test_save_rejects_invalid_sweatshirt_size(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('frm_incorporations'), {
+            'action': 'save', 'name': 'Bad Size', 'company': str(self.company.id_company),
+            'department': 'IT', 'delegation': str(self.deleg.id_delegation),
+            'insert_date': '2026-05-01', 'sweatshirt_size': 'HUGE',
+        })
+        self.assertEqual(response.status_code, 302)
+        saved = OeesIncorporations.objects.get(name='Bad Size')
+        self.assertIsNone(saved.sweatshirt_size)   # invalid size -> not stored
 
     def test_complete_migrates_to_staff(self):
         self.client.force_login(self.user)

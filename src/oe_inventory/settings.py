@@ -319,6 +319,14 @@ RESEND_VERIFY_SSL = os.environ.get('RESEND_VERIFY_SSL', 'True') == 'True'
 # Recipient for the staff inventory reports (the People department).
 STAFF_REPORT_RECIPIENT = os.environ.get('STAFF_REPORT_RECIPIENT', '')
 
+# IMAP mailbox for incoming incorporation-preference replies (the returned PDF
+# forms). Read in the 5-minute background refresh; secrets via env only.
+INCORP_IMAP_HOST = os.environ.get('INCORP_IMAP_HOST', '')
+INCORP_IMAP_PORT = int(os.environ.get('INCORP_IMAP_PORT', '993') or '993')
+INCORP_IMAP_USER = os.environ.get('INCORP_IMAP_USER', '')
+INCORP_IMAP_PASSWORD = os.environ.get('INCORP_IMAP_PASSWORD', '')
+INCORP_IMAP_MAILBOX = os.environ.get('INCORP_IMAP_MAILBOX', 'INBOX')
+
 # TP-Link Omada Open API (Cloud-Based Controller). Credentials come from an
 # application created in the controller (Settings -> Platform Integration ->
 # Open API). Secrets must never be hardcoded — set them as env vars / EB
@@ -412,3 +420,4 @@ if 'test' in sys.argv:
     NEBULA_BASE_URL = NEBULA_API_KEY = NEBULA_ORG_ID = ''
     ANYDESK_API_LICENSE = ANYDESK_API_KEY = ANYDESK_API_TOKEN = ''
     LOGITECH_CERT_PATH = LOGITECH_KEY_PATH = ''
+    INCORP_IMAP_HOST = INCORP_IMAP_USER = INCORP_IMAP_PASSWORD = ''

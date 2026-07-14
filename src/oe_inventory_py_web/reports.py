@@ -317,3 +317,198 @@ def build_net_topology_pdf(site_name, topology):
 
     doc.build(elements)
     return buffer.getvalue()
+
+
+# Valid sweatshirt sizes for the editable-form dropdown (kept in sync with the
+# server-side validation in views._incorporation_save).
+SWEATSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
+
+
+def build_incorporation_form_pdf(data):
+    """Return an *editable* PDF (AcroForm) for an incorporation's preferences.
+
+    Layout approximates the left panel of frmIncorporations. Most fields are
+    normal (text) fields; the equipment items (Phone, Mouse, Screen, Keyboard,
+    USB-C HUB, PDF, ACAD) are editable checkboxes and the sweatshirt size is a
+    dropdown restricted to SWEATSHIRT_SIZES.
+
+    data: dict with keys name, email, company, department, delegation, date,
+    address, laptop, headset, notes (strings) and phone/mouse/screen/keyboard/
+    usbchub/pdf/acad (truthy) plus sweatshirt_size (str).
+    """
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    W, H = A4
+    c = canvas.Canvas(buffer, pagesize=A4)
+    form = c.acroForm
+
+    m = 2 * cm
+    grey = colors.Color(0.6, 0.6, 0.6)
+    label_color = colors.Color(0.2, 0.2, 0.2)
+    # Corporate pink marks the editable fields; light pink is their fill.
+    pink = colors.HexColor('#FF48D8')
+    pink_fill = colors.HexColor('#FDE6F9')
+
+    # --- Header: logo (top-right, same max size as the staff PDF) + title ---
+    y = H - m
+    logo = _logo_path()
+    if logo:
+        try:
+            iw, ih = ImageReader(logo).getSize()
+            max_w, max_h = 5.0 * cm, 1.6 * cm
+            scale = min(max_w / iw, max_h / ih)
+            lw, lh = iw * scale, ih * scale
+            c.drawImage(logo, W - m - lw, y - lh, width=lw, height=lh,
+                        preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+    c.setFont('Helvetica-Bold', 18)
+    c.setFillColor(colors.HexColor('#FF48D8'))
+    c.drawString(m, y - 16, "Incorporation Preferences")
+    c.setFillColor(colors.black)
+    y -= 1.6 * cm + 10
+
+    field_w = W - 2 * m
+    fh = 18  # text field height
+
+    def label(text, x, yy):
+        c.setFont('Helvetica-Bold', 8)
+        c.setFillColor(label_color)
+        c.drawString(x, yy, text)
+        c.setFillColor(colors.black)
+
+    # Read-only text fields get a light-grey fill so it's obvious they can't be
+    # edited; the only editable text field is the (remote) Address below.
+    readonly_fill = colors.Color(0.94, 0.94, 0.94)
+
+    def textfield(name, value, x, yy, w, h=fh):
+        form.textfield(name=name, value=str(value or ''), x=x, y=yy, width=w, height=h,
+                       borderColor=grey, fillColor=readonly_fill, textColor=colors.black,
+                       borderWidth=1, forceBorder=True, fontName='Helvetica', fontSize=9,
+                       fieldFlags='readOnly')
+
+    def row_full(name, lbl, value, h=fh):
+        nonlocal y
+        label(lbl, m, y)
+        y -= (h + 4)
+        textfield(name, value, m, y, field_w, h)
+        y -= 12
+
+    # ID (read-only reference; used later to match the returned form).
+    label('ID', m, y)
+    y -= (fh + 4)
+    textfield('id', data.get('id'), m, y, 3 * cm)
+    y -= 12
+
+    # Full-width text rows.
+    row_full('name', 'Name', data.get('name'))
+    row_full('email', 'Email', data.get('email'))
+    row_full('company', 'Company', data.get('company'))
+    row_full('department', 'Department', data.get('department'))
+
+    # Delegation + Date on one row.
+    half = (field_w - 12) / 2
+    label('Delegation', m, y)
+    label('Date', m + half + 12, y)
+    y -= (fh + 4)
+    textfield('delegation', data.get('delegation'), m, y, half)
+    textfield('insert_date', data.get('date'), m + half + 12, y, half)
+    y -= 12
+
+    # Address (only for REMOTE delegations; taller, multiline).
+    if data.get('is_remote'):
+        label('Address (remote)', m, y)
+        y -= (34 + 4)
+        form.textfield(name='address', value=str(data.get('address') or ''), x=m, y=y,
+                       width=field_w, height=34, borderColor=pink, fillColor=pink_fill,
+                       textColor=colors.black, borderWidth=1, forceBorder=True,
+                       fontName='Helvetica', fontSize=9, fieldFlags='multiline')
+        y -= 12
+
+    # Laptop + Headset on one row (text for now; refined later).
+    label('Laptop', m, y)
+    label('Headset', m + half + 12, y)
+    y -= (fh + 4)
+    textfield('laptop', data.get('laptop'), m, y, half)
+    textfield('headset', data.get('headset'), m + half + 12, y, half)
+    y -= 16
+
+    # --- Equipment box: checkboxes (2 columns) + sweatshirt dropdown ---
+    label('Equipment', m, y)
+    y -= 14
+    checks = [
+        ('chk_usbchub', 'USB-C HUB', data.get('usbchub')),
+        ('chk_pdf', 'PDF', data.get('pdf')),
+        ('chk_mouse', 'Mouse', data.get('mouse')),
+        ('chk_acad', 'ACAD', data.get('acad')),
+        ('chk_keyboard', 'Keyboard', data.get('keyboard')),
+    ]
+    col_x = [m, m + half + 12]
+    size = 12
+    row_y = y
+    for i, (name, lbl, val) in enumerate(checks):
+        cx = col_x[i % 2]
+        if i % 2 == 0 and i > 0:
+            row_y -= 22
+        form.checkbox(name=name, x=cx, y=row_y - size + 2, size=size,
+                      checked=bool(val), buttonStyle='check', borderColor=pink,
+                      fillColor=pink_fill, textColor=colors.black,
+                      borderWidth=1, forceBorder=True)
+        c.setFont('Helvetica', 9)
+        c.drawString(cx + size + 5, row_y - size + 4, lbl)
+    y = row_y - 22
+
+    # Sweatshirt size dropdown (only the valid sizes).
+    label('Sweatshirt size', m, y)
+    y -= (fh + 4)
+    current = (data.get('sweatshirt_size') or '').upper()
+    # reportlab's acroForm.choice raises UnboundLocalError when the initial value
+    # is falsy (empty), so use a non-empty blank placeholder for "no size yet".
+    blank = ' '
+    form.choice(name='sweatshirt_size', value=current if current in SWEATSHIRT_SIZES else blank,
+                x=m, y=y, width=half, height=fh, options=[blank] + SWEATSHIRT_SIZES,
+                borderColor=pink, fillColor=pink_fill, textColor=colors.black,
+                borderWidth=1, forceBorder=True, fontName='Helvetica', fontSize=9,
+                fieldFlags='combo')
+    y -= 20
+
+    # Instructions to the recipient (EN then ES), split by a thin pink rule.
+    instr_style = ParagraphStyle('Instructions', fontName='Helvetica', fontSize=8,
+                                 leading=11, textColor=colors.black)
+    mail_en = '<b><font color="#FF48D8">oees_incorporations@octoenergy.com</font></b>'
+    text_en = (
+        "Please download this PDF and tick the options you prefer so that we can have "
+        "them ready for your induction. Only the fields in pink are editable. Once you "
+        "have made your selection, please forward this document to " + mail_en + " so "
+        "that we can process your preferences. Please send the PDF as it is; do not send "
+        "a form, document or screenshot, as this will not be processed and your "
+        "preferences will not be prepared. If you have any queries, please contact the "
+        "person with whom you arranged your interview."
+    )
+    text_es = (
+        "Por favor, descarga el documento PDF y marca las opciones de tu preferencia "
+        "para que las tengamos preparadas para tu incorporaci&oacute;n. Solo los campos "
+        "en rosa son editables. Una vez completada la selecci&oacute;n, por favor, "
+        "reenv&iacute;a este documento a " + mail_en + " para que podamos procesar tus "
+        "preferencias. Manda el PDF tal cual, no mandes una foto del documento o una "
+        "captura de pantalla, ya que entonces no se procesar&aacute; y tus preferencias "
+        "no estar&aacute;n preparadas. Si tienes alguna duda, ponte en contacto con la "
+        "persona con la que agendaste tu entrevista."
+    )
+    para_en = Paragraph(text_en, instr_style)
+    _, ph_en = para_en.wrap(field_w, y - m)
+    para_en.drawOn(c, m, y - ph_en)
+    y = y - ph_en - 8
+
+    c.setStrokeColor(pink)
+    c.setLineWidth(0.7)
+    c.line(m, y, m + field_w, y)
+    y -= 10
+
+    para_es = Paragraph(text_es, instr_style)
+    _, ph_es = para_es.wrap(field_w, y - m)
+    para_es.drawOn(c, m, y - ph_es)
+
+    c.save()
+    return buffer.getvalue()

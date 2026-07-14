@@ -31,6 +31,9 @@
                     <label class="form-label small mb-1">Name</label>
                     <input type="text" id="input-name" name="name" class="form-control form-control-sm mb-2" maxlength="50">
 
+                    <label class="form-label small mb-1">Email</label>
+                    <input type="email" id="input-email" name="email" class="form-control form-control-sm mb-2" maxlength="254">
+
                     <label class="form-label small mb-1">Company</label>
                     <select id="select-company" name="company" class="form-select form-select-sm mb-2">
                         <option value="">-- Company --</option>
@@ -83,14 +86,27 @@
 
                     <div class="border rounded p-2 mb-2">
                         <div class="row g-1">
-                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="phone" id="chk-phone" value="1"><label class="form-check-label small" for="chk-phone">Phone</label></div>
-                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="usbchub" id="chk-usbchub" value="1"><label class="form-check-label small" for="chk-usbchub">USB-C HUB</label></div>
-                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="screen" id="chk-screen" value="1"><label class="form-check-label small" for="chk-screen">Screen</label></div>
-                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="pdf" id="chk-pdf" value="1"><label class="form-check-label small" for="chk-pdf">PDF</label></div>
-                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="mouse" id="chk-mouse" value="1"><label class="form-check-label small" for="chk-mouse">Mouse</label></div>
-                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="acad" id="chk-acad" value="1"><label class="form-check-label small" for="chk-acad">ACAD</label></div>
-                            <div class="col-6 form-check ms-1"><input class="form-check-input" type="checkbox" name="keyboard" id="chk-keyboard" value="1"><label class="form-check-label small" for="chk-keyboard">Keyboard</label></div>
-                            <div class="col-6 form-check"><input class="form-check-input" type="checkbox" name="descartado" id="chk-descartado" value="1"><label class="form-check-label small" for="chk-descartado">Discarded</label></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="phone" id="chk-phone" value="1"><label class="form-check-label small" for="chk-phone">Phone</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="usbchub" id="chk-usbchub" value="1"><label class="form-check-label small" for="chk-usbchub">USB-C HUB</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="screen" id="chk-screen" value="1"><label class="form-check-label small" for="chk-screen">Screen</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="pdf" id="chk-pdf" value="1"><label class="form-check-label small" for="chk-pdf">PDF</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="mouse" id="chk-mouse" value="1"><label class="form-check-label small" for="chk-mouse">Mouse</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="acad" id="chk-acad" value="1"><label class="form-check-label small" for="chk-acad">ACAD</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="keyboard" id="chk-keyboard" value="1"><label class="form-check-label small" for="chk-keyboard">Keyboard</label></div></div>
+                            <div class="col-6"><div class="form-check d-flex align-items-center gap-2">
+                                <label class="form-check-label small mb-0 text-nowrap" for="select-sweatshirt">Sweatshirt</label>
+                                <select name="sweatshirt_size" id="select-sweatshirt" class="form-select form-select-sm">
+                                    <option value="">--</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                </select>
+                            </div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="descartado" id="chk-descartado" value="1"><label class="form-check-label small" for="chk-descartado">Discarded</label></div></div>
                         </div>
                     </div>
 
@@ -109,6 +125,9 @@
                         </button>
                         <button type="button" class="btn p-0 border-0" title="Receive devices" onclick="recibirIncorporacion()">
                             <img src="/static/buttons/received2.png" alt="Receive" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Email editable preferences form to the person" onclick="preferenciasIncorporacion()">
+                            <i class="bi bi-file-earmark-pdf" style="font-size: 22px; color: #d6336c;"></i>
                         </button>
                         <button type="button" class="btn p-0 border-0 ms-auto" title="Complete incorporation (migrate to Staff)" onclick="completarIncorporacion()">
                             <img src="/static/buttons/release.png" alt="Complete" style="width: 24px; height: 24px;">
@@ -161,7 +180,7 @@
     </div>
 </div>
 
-<script src="{% static 'js/incorporations.js' %}"></script>
+<script src="{% static 'js/incorporations.js' %}?v=3"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

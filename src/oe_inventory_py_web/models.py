@@ -264,6 +264,7 @@ class OeesFiberLinesIncidences(models.Model):
 class OeesIncorporations(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
+    email = models.CharField(max_length=254, blank=True, null=True, db_column='personal_email')
     company = models.ForeignKey('OeesCompanies', on_delete=models.SET_NULL, blank=True, null=True, db_column='company')
     department = models.CharField(max_length=50)
     insert_date = models.DateField()
@@ -275,6 +276,7 @@ class OeesIncorporations(models.Model):
     screen = models.IntegerField(blank=True, null=True)
     mouse = models.IntegerField(blank=True, null=True)
     keyboard = models.IntegerField(blank=True, null=True)
+    sweatshirt_size = models.CharField(max_length=4, blank=True, null=True)
     cordedh = models.IntegerField(db_column='cordedH')  # Field name made lowercase.
     cordlessh = models.IntegerField(db_column='cordlessH')  # Field name made lowercase.
     usbchub = models.IntegerField(db_column='usbcHub')  # Field name made lowercase.
@@ -286,6 +288,8 @@ class OeesIncorporations(models.Model):
     incorporated = models.IntegerField()
     send = models.IntegerField()
     receive = models.IntegerField()
+    # 0 = not sent, 1 = preferences PDF emailed, 2 = returned PDF processed.
+    email_processed = models.IntegerField(default=0)
 
     def __str__(self):
         return f"Name: {self.name} - Department: {self.department}" 

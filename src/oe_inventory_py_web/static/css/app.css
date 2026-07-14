@@ -58,3 +58,11 @@ body.is-reader .export-excel {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
         Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
+
+/* Make the DataTables pagination (Previous / Next / page numbers) match the
+   small "Showing 1 to..." info text at the bottom of every list. */
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate,
+.dataTables_wrapper .dataTables_paginate .page-link {
+    font-size: 0.75rem;
+}
