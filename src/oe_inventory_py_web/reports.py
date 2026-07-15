@@ -324,6 +324,19 @@ def build_net_topology_pdf(site_name, topology):
 SWEATSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
 
 
+def _pdf_safe(value):
+    """Make a string safe for an AcroForm text field. reportlab escapes field
+    values against the PDF standard (Latin-1) encoding, so characters outside it
+    (en/em dashes, curly quotes, ellipsis, NBSP — common from copy/paste) raise
+    ``KeyError`` in escapePDF. Transliterate the usual ones and drop the rest."""
+    s = str(value or '')
+    for bad, good in (('–', '-'), ('—', '-'), ('‘', "'"),
+                      ('’', "'"), ('“', '"'), ('”', '"'),
+                      ('…', '...'), (' ', ' ')):
+        s = s.replace(bad, good)
+    return s.encode('latin-1', 'replace').decode('latin-1')
+
+
 def build_incorporation_form_pdf(data):
     """Return an *editable* PDF (AcroForm) for an incorporation's preferences.
 
@@ -383,7 +396,7 @@ def build_incorporation_form_pdf(data):
     readonly_fill = colors.Color(0.94, 0.94, 0.94)
 
     def textfield(name, value, x, yy, w, h=fh):
-        form.textfield(name=name, value=str(value or ''), x=x, y=yy, width=w, height=h,
+        form.textfield(name=name, value=_pdf_safe(value), x=x, y=yy, width=w, height=h,
                        borderColor=grey, fillColor=readonly_fill, textColor=colors.black,
                        borderWidth=1, forceBorder=True, fontName='Helvetica', fontSize=9,
                        fieldFlags='readOnly')
@@ -420,7 +433,7 @@ def build_incorporation_form_pdf(data):
     if data.get('is_remote'):
         label('Address (remote)', m, y)
         y -= (34 + 4)
-        form.textfield(name='address', value=str(data.get('address') or ''), x=m, y=y,
+        form.textfield(name='address', value=_pdf_safe(data.get('address')), x=m, y=y,
                        width=field_w, height=34, borderColor=pink, fillColor=pink_fill,
                        textColor=colors.black, borderWidth=1, forceBorder=True,
                        fontName='Helvetica', fontSize=9, fieldFlags='multiline')

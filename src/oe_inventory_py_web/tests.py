@@ -728,6 +728,17 @@ class IncorporationsScreenTests(TestCase):
         })
         self.assertTrue(pdf.startswith(b'%PDF'))
 
+    def test_build_incorporation_pdf_non_latin1_chars(self):
+        # Typographic chars (en-dash, curly quotes) used to crash reportlab's
+        # escapePDF (KeyError) on the pure-Python path (as on AWS).
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        pdf = build_incorporation_form_pdf({
+            'id': 1, 'name': 'Ana – O’Neill', 'email': 'a@b.com',
+            'address': 'Calle “Sol” 3 – 2ºB', 'is_remote': True,
+            'sweatshirt_size': 'M',
+        })
+        self.assertTrue(pdf.startswith(b'%PDF'))
+
     def test_apply_pdf_round_trip_updates_record(self):
         # Build the editable PDF, then read it back and apply it to the record:
         # the editable fields must be updated and an audit line prepended.
