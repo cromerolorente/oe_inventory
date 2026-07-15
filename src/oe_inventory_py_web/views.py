@@ -2590,23 +2590,42 @@ def _incorporation_preferences(request):
     }
     try:
         pdf = build_incorporation_form_pdf(data)
-        name = rec.name or ''
-        body = (
-            f"Hello {name},\n\n"
-            "Please find attached your incorporation preferences form. Fill it in "
-            "and return it to us.\n\n"
-            "Best regards,\nPeople Team.\n\n"
-            "----------------------------------------\n\n"
-            f"Hola {name},\n\n"
-            "Adjuntamos tu formulario de preferencias de incorporación. Rellénalo "
-            "y devuélvenoslo.\n\n"
-            "Un saludo,\nPeople Team."
-        )
+        from django.utils.html import escape
+        first = escape((rec.name or '').strip().split(' ')[0]) if rec.name else ''
+        greet_es = f"¡Buenas {first}!" if first else "¡Buenas!"
+        greet_en = f"Hi {first}!" if first else "Hi!"
+        body = f"""\
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222; line-height: 1.5;">
+  <p>{greet_es} 👋</p>
+  <p>Espero que vaya todo genial.</p>
+  <p>Desde Octopus Energy estamos preparando todo con muchísima ilusión para tu llegada al equipo. Queremos asegurarnos de que tu primer día tengas todo listo para empezar a tope y que te sientas como en casa desde el minuto uno.</p>
+  <p>Para dejarlo todo niquelado, te dejamos adjunto en este correo un PDF editable. En él podrás elegir las herramientas que te acompañarán en tu día a día y, por supuesto, el merchandising oficial de la casa.</p>
+  <p>Concretamente, necesitamos que nos indiques tus preferencias de:</p>
+  <p>⌨️ Teclado<br>🖱️ Ratón<br>🧥 Talla de tu sudadera de Octopus</p>
+  <p>Solo tienes que rellenar el documento con tus opciones y reenviármelo al correo que indica el PDF y seguir las instrucciones. Es bastante sencillo, pero si tienes cualquier tipo de duda, tan solo coméntanoslo.</p>
+  <p>Poder prepararlo con tiempo es muy importante para nosotros, por eso mismo, si nos ayudas completándolo cuanto antes, a nivel logístico te lo agradeceríamos 🚚</p>
+  <p>¡Qué ganas de que llegue el día!</p>
+  <p>¡Un saludo!<br><br>People Team</p>
+
+  <hr style="border: none; border-top: 2px solid #FF48D8; margin: 24px 0;">
+
+  <p>{greet_en} 👋</p>
+  <p>I hope everything's going great.</p>
+  <p>Here at Octopus Energy we're getting everything ready with lots of excitement for your arrival to the team. We want to make sure that on your first day you have everything set up to hit the ground running and feel at home from minute one.</p>
+  <p>To get everything spot on, we've attached an editable PDF to this email. In it you can choose the tools that will be with you day to day and, of course, the official company merchandising.</p>
+  <p>Specifically, we need you to tell us your preferences for:</p>
+  <p>⌨️ Keyboard<br>🖱️ Mouse<br>🧥 Your Octopus sweatshirt size</p>
+  <p>You just need to fill in the document with your choices and send it back to the email address shown in the PDF, following the instructions. It's quite simple, but if you have any questions, just let us know.</p>
+  <p>Being able to prepare it in advance is very important to us, so if you could help us by completing it as soon as possible, logistically we'd really appreciate it 🚚</p>
+  <p>Can't wait for the day to come!</p>
+  <p>Best regards,<br><br>People Team</p>
+</div>"""
         email = EmailMessage(
             subject="Incorporation Preferences",
             body=body,
             to=[recipient],
         )
+        email.content_subtype = 'html'
         email.attach(
             f"Incorporation_Preferences_{(rec.name or 'form').replace(' ', '_')}.pdf",
             pdf, 'application/pdf')
