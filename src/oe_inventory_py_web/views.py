@@ -2343,7 +2343,7 @@ def _incorporation_rows(qs):
             'date': r.insert_date,
             'sweatshirt': r.sweatshirt_size or '',
             'email_processed': r.email_processed or 0,
-            'flags': [r.win, r.mba, r.mbp, r.phone, r.screen, r.mouse, r.keyboard,
+            'flags': [r.win, r.mba, r.mbp, r.phone, r.screen, r.mouse, r.left_mouse, r.keyboard,
                       r.cordedh, r.cordlessh, r.usbchub, r.pdf, r.acad, r.send, r.receive],
         })
     return rows
@@ -2451,6 +2451,11 @@ def _incorporation_save(request):
     sweatshirt = request.POST.get('sweatshirt_size', '').strip().upper()
     if sweatshirt not in {'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'}:
         sweatshirt = ''
+    # Right/Left mouse are mutually exclusive; if both arrive set, keep right.
+    mouse_right = _chk(request, 'mouse')
+    mouse_left = _chk(request, 'left_mouse')
+    if mouse_right and mouse_left:
+        mouse_left = 0
     common = {
         'name': name, 'email': request.POST.get('email', '').strip() or None,
         'company_id': company_id, 'department': department,
@@ -2462,7 +2467,7 @@ def _incorporation_save(request):
         'cordedh': 1 if headset == 'corded' else 0,
         'cordlessh': 1 if headset == 'cordless' else 0,
         'phone': _chk(request, 'phone'), 'screen': _chk(request, 'screen'),
-        'mouse': _chk(request, 'mouse'), 'keyboard': _chk(request, 'keyboard'),
+        'mouse': mouse_right, 'left_mouse': mouse_left, 'keyboard': _chk(request, 'keyboard'),
         'descartado': _chk(request, 'descartado'), 'usbchub': _chk(request, 'usbchub'),
         'pdf': _chk(request, 'pdf'), 'acad': _chk(request, 'acad'),
         'sweatshirt_size': sweatshirt or None,
@@ -2584,7 +2589,7 @@ def _incorporation_preferences(request):
         'date': rec.insert_date.strftime('%d-%m-%Y') if rec.insert_date else '',
         'address': rec.direccion or '', 'laptop': laptop, 'headset': headset,
         'is_remote': _is_remote_delegation(rec.delegation),
-        'phone': rec.phone, 'mouse': rec.mouse, 'screen': rec.screen,
+        'phone': rec.phone, 'mouse': rec.mouse, 'left_mouse': rec.left_mouse, 'screen': rec.screen,
         'keyboard': rec.keyboard, 'usbchub': rec.usbchub, 'pdf': rec.pdf, 'acad': rec.acad,
         'sweatshirt_size': rec.sweatshirt_size or '',
     }
@@ -2664,6 +2669,7 @@ def api_get_incorporation(request):
         'date': r.insert_date.strftime('%Y-%m-%d') if r.insert_date else '',
         'direccion': r.direccion or '', 'laptop': laptop, 'headset': headset,
         'phone': 1 if r.phone else 0, 'screen': 1 if r.screen else 0, 'mouse': 1 if r.mouse else 0,
+        'left_mouse': 1 if r.left_mouse else 0,
         'keyboard': 1 if r.keyboard else 0, 'descartado': 1 if r.descartado else 0,
         'usbchub': 1 if r.usbchub else 0, 'pdf': 1 if r.pdf else 0, 'acad': 1 if r.acad else 0,
         'sweatshirt_size': r.sweatshirt_size or '',

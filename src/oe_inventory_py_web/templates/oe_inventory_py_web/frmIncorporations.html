@@ -90,7 +90,8 @@
                             <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="usbchub" id="chk-usbchub" value="1"><label class="form-check-label small" for="chk-usbchub">USB-C HUB</label></div></div>
                             <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="screen" id="chk-screen" value="1"><label class="form-check-label small" for="chk-screen">Screen</label></div></div>
                             <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="pdf" id="chk-pdf" value="1"><label class="form-check-label small" for="chk-pdf">PDF</label></div></div>
-                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="mouse" id="chk-mouse" value="1"><label class="form-check-label small" for="chk-mouse">Mouse</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="mouse" id="chk-mouse" value="1" onclick="onMouseToggle('right')"><label class="form-check-label small" for="chk-mouse">Right Mouse</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="left_mouse" id="chk-left-mouse" value="1" onclick="onMouseToggle('left')"><label class="form-check-label small" for="chk-left-mouse">Left Mouse</label></div></div>
                             <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="acad" id="chk-acad" value="1"><label class="form-check-label small" for="chk-acad">ACAD</label></div></div>
                             <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="keyboard" id="chk-keyboard" value="1"><label class="form-check-label small" for="chk-keyboard">Keyboard</label></div></div>
                             <div class="col-6"><div class="form-check d-flex align-items-center gap-2">
@@ -180,7 +181,7 @@
     </div>
 </div>
 
-<script src="{% static 'js/incorporations.js' %}?v=3"></script>
+<script src="{% static 'js/incorporations.js' %}?v=4"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

@@ -17,6 +17,14 @@ function setCheck(id, on) {
     document.getElementById(id).checked = (on === 1 || on === true);
 }
 
+// Right Mouse and Left Mouse are mutually exclusive: checking one clears the other.
+function onMouseToggle(which) {
+    const right = document.getElementById('chk-mouse');
+    const left = document.getElementById('chk-left-mouse');
+    if (which === 'right' && right.checked) left.checked = false;
+    if (which === 'left' && left.checked) right.checked = false;
+}
+
 function buscarIncorporacionAjax() {
     const code = currentCode();
     if (!code) return;
@@ -50,6 +58,7 @@ function fillIncorporation(d) {
     setCheck('chk-phone', d.phone);
     setCheck('chk-screen', d.screen);
     setCheck('chk-mouse', d.mouse);
+    setCheck('chk-left-mouse', d.left_mouse);
     setCheck('chk-keyboard', d.keyboard);
     document.getElementById('select-sweatshirt').value = d.sweatshirt_size || '';
     setCheck('chk-descartado', d.descartado);

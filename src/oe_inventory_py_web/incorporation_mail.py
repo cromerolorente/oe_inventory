@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 _CHECKBOX_FIELDS = {
     'chk_usbchub': 'usbchub',
     'chk_pdf': 'pdf',
-    'chk_mouse': 'mouse',
     'chk_acad': 'acad',
     'chk_keyboard': 'keyboard',
 }
@@ -75,10 +74,17 @@ def _iter_pdf_attachments(msg):
 
 def apply_pdf(pdf_bytes, sender):
     """Update the incorporation identified by the PDF's ``id`` field from its
-    editable fields, and prepend an audit line to notes. Returns True on update."""
+    editable fields, and prepend an audit line to notes. Returns True on update.
+
+    We only act on our *editable* form PDFs: a PDF with no AcroForm fields (a
+    photo/scan/printout of the document, exactly what the email asks candidates
+    not to send) is ignored. The caller marks the email read regardless."""
     from .models import OeesIncorporations
 
     fields = _read_pdf_fields(pdf_bytes)
+    if not fields:
+        logger.info("PDF from %s is not an editable form (no fields); ignoring", sender)
+        return False
     raw_id = fields.get('id')
     id_str = str(raw_id).strip() if raw_id is not None else ''
     if not id_str.isdigit():
@@ -92,6 +98,11 @@ def apply_pdf(pdf_bytes, sender):
 
     for pdf_name, attr in _CHECKBOX_FIELDS.items():
         setattr(rec, attr, 1 if _checkbox_on(fields.get(pdf_name)) else 0)
+
+    # Mouse is a radio group (mouse_hand): 'right' -> mouse, 'left' -> left_mouse.
+    hand = str(fields.get('mouse_hand') or '').strip().lstrip('/').lower()
+    rec.mouse = 1 if hand == 'right' else 0
+    rec.left_mouse = 1 if hand == 'left' else 0
 
     size = str(fields.get('sweatshirt_size') or '').strip().upper()
     rec.sweatshirt_size = size if size in _VALID_SIZES else None

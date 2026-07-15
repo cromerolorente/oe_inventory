@@ -747,13 +747,13 @@ class IncorporationsScreenTests(TestCase):
         rec = OeesIncorporations.objects.create(
             name='Round Trip', department='IT', insert_date=date(2026, 3, 1),
             company_id=self.company.id_company, delegation_id=self.deleg.id_delegation,
-            cordedh=0, cordlessh=0, usbchub=0, pdf=1, acad=1, mouse=0,
+            cordedh=0, cordlessh=0, usbchub=0, pdf=1, acad=1, mouse=0, left_mouse=1,
             keyboard=0, phone=1, screen=1, incorporated=0, send=0, receive=0,
             descartado=0, sweatshirt_size='S',
         )
         pdf = build_incorporation_form_pdf({
             'id': rec.id, 'name': rec.name, 'email': 'hire@example.com',
-            'usbchub': 1, 'pdf': 0, 'mouse': 1, 'acad': 0, 'keyboard': 1,
+            'usbchub': 1, 'pdf': 0, 'mouse': 1, 'left_mouse': 0, 'acad': 0, 'keyboard': 1,
             'sweatshirt_size': 'XXL',
         })
         self.assertTrue(incorporation_mail.apply_pdf(pdf, 'hire@example.com'))
@@ -761,7 +761,8 @@ class IncorporationsScreenTests(TestCase):
         rec.refresh_from_db()
         self.assertEqual(rec.usbchub, 1)
         self.assertEqual(rec.pdf, 0)
-        self.assertEqual(rec.mouse, 1)
+        self.assertEqual(rec.mouse, 1)          # right mouse selected in the PDF
+        self.assertEqual(rec.left_mouse, 0)     # ...so left mouse cleared
         self.assertEqual(rec.acad, 0)
         self.assertEqual(rec.keyboard, 1)
         self.assertEqual(rec.sweatshirt_size, 'XXL')
@@ -771,11 +772,53 @@ class IncorporationsScreenTests(TestCase):
         self.assertIn('Received preferences from hire@example.com automatically', rec.notes)
         self.assertEqual(rec.email_processed, 2)
 
+    def test_apply_pdf_left_mouse(self):
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        from oe_inventory_py_web import incorporation_mail
+        rec = OeesIncorporations.objects.create(
+            name='Lefty', department='IT', insert_date=date(2026, 3, 1),
+            company_id=self.company.id_company, delegation_id=self.deleg.id_delegation,
+            cordedh=0, cordlessh=0, usbchub=0, pdf=0, acad=0, mouse=1, left_mouse=0,
+            keyboard=0, phone=0, screen=0, incorporated=0, send=0, receive=0, descartado=0,
+        )
+        pdf = build_incorporation_form_pdf({
+            'id': rec.id, 'name': rec.name, 'mouse': 0, 'left_mouse': 1,
+        })
+        self.assertTrue(incorporation_mail.apply_pdf(pdf, 'x@example.com'))
+        rec.refresh_from_db()
+        self.assertEqual(rec.mouse, 0)
+        self.assertEqual(rec.left_mouse, 1)
+
+    def test_save_mouse_mutually_exclusive(self):
+        # If both Right and Left mouse arrive checked, only Right is kept.
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_incorporations'), {
+            'action': 'save', 'name': 'Both Mice', 'company': str(self.company.id_company),
+            'department': 'IT', 'delegation': str(self.deleg.id_delegation),
+            'insert_date': '2026-05-01', 'mouse': '1', 'left_mouse': '1',
+        })
+        saved = OeesIncorporations.objects.get(name='Both Mice')
+        self.assertEqual(saved.mouse, 1)
+        self.assertEqual(saved.left_mouse, 0)
+
     def test_apply_pdf_unknown_id_is_ignored(self):
         from oe_inventory_py_web.reports import build_incorporation_form_pdf
         from oe_inventory_py_web import incorporation_mail
         pdf = build_incorporation_form_pdf({'id': 99999999, 'name': 'Ghost'})
         self.assertFalse(incorporation_mail.apply_pdf(pdf, 'x@example.com'))
+
+    def test_apply_pdf_flat_pdf_ignored(self):
+        # A flat PDF with no AcroForm fields (a photo/printout of the document)
+        # is not an editable form -> ignored.
+        import io
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        from oe_inventory_py_web import incorporation_mail
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf, pagesize=A4)
+        c.drawString(72, 750, 'Just a scanned document, no form fields.')
+        c.save()
+        self.assertFalse(incorporation_mail.apply_pdf(buf.getvalue(), 'x@example.com'))
 
     def test_preferences_requires_email(self):
         # An incorporation without an email address cannot be sent the form.

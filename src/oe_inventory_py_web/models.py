@@ -274,7 +274,8 @@ class OeesIncorporations(models.Model):
     mbp = models.IntegerField(blank=True, null=True)
     phone = models.IntegerField(blank=True, null=True)
     screen = models.IntegerField(blank=True, null=True)
-    mouse = models.IntegerField(blank=True, null=True)
+    mouse = models.IntegerField(blank=True, null=True)          # right-handed mouse
+    left_mouse = models.IntegerField(blank=True, null=True)     # left-handed mouse
     keyboard = models.IntegerField(blank=True, null=True)
     sweatshirt_size = models.CharField(max_length=4, blank=True, null=True)
     cordedh = models.IntegerField(db_column='cordedH')  # Field name made lowercase.

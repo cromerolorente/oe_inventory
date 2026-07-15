@@ -453,7 +453,6 @@ def build_incorporation_form_pdf(data):
     checks = [
         ('chk_usbchub', 'USB-C HUB', data.get('usbchub')),
         ('chk_pdf', 'PDF', data.get('pdf')),
-        ('chk_mouse', 'Mouse', data.get('mouse')),
         ('chk_acad', 'ACAD', data.get('acad')),
         ('chk_keyboard', 'Keyboard', data.get('keyboard')),
     ]
@@ -470,7 +469,18 @@ def build_incorporation_form_pdf(data):
                       borderWidth=1, forceBorder=True)
         c.setFont('Helvetica', 9)
         c.drawString(cx + size + 5, row_y - size + 4, lbl)
-    y = row_y - 22
+    y = row_y - 24
+
+    # Mouse preference as a radio group: only one of Right / Left can be picked.
+    hand = 'right' if data.get('mouse') else ('left' if data.get('left_mouse') else '')
+    c.setFont('Helvetica', 9)
+    for value, lbl, rx in (('right', 'Right Mouse', col_x[0]), ('left', 'Left Mouse', col_x[1])):
+        form.radio(name='mouse_hand', value=value, selected=(hand == value),
+                   x=rx, y=y - size + 2, size=size, buttonStyle='circle',
+                   borderColor=pink, fillColor=pink_fill, textColor=colors.black,
+                   borderWidth=1, forceBorder=True, fieldFlags='radio')
+        c.drawString(rx + size + 5, y - size + 4, lbl)
+    y -= 24
 
     # Sweatshirt size dropdown (only the valid sizes).
     label('Sweatshirt size', m, y)
