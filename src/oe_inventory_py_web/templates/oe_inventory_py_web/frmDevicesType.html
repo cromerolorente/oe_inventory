@@ -1,0 +1,87 @@
+{% extends 'oe_inventory_py_web/base_mdi.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-3 bg-light min-vh-100 app-surface">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h5 class="mb-0 fw-bold" style="color: #FF48D8;"><img src="/static/octopus.png" alt="" style="height: 1.2em; vertical-align: -0.2em;"> Device Types</h5>
+        <a href="{% url 'mdi_home' %}" class="btn btn-danger btn-sm px-3"><i class="bi bi-box-arrow-right"></i> Exit</a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="card shadow-sm p-3 bg-white">
+                <form method="POST" action="{% url 'frm_devices_type' %}" id="form-type">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" id="input-action" value="save">
+                    <input type="hidden" name="code" id="input-code-hidden" value="">
+
+                    <label class="form-label small mb-1">Description</label>
+                    <input type="text" id="input-type" name="type" class="form-control form-control-sm mb-1" maxlength="100"
+                        placeholder="Type description (e.g. LAPTOP WIN)">
+                    <div id="used-note" class="small text-danger mb-2" style="display:none;">
+                        This type is used by devices or orders: it can't be renamed or deleted.
+                    </div>
+
+                    <div class="mt-2 pt-2 border-top d-flex gap-3 align-items-center">
+                        <button type="button" class="btn p-0 border-0" title="Save (create or rename)" onclick="guardarType()">
+                            <img src="/static/buttons/save.png" alt="Save" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" class="btn p-0 border-0" title="Clear form (new type)" onclick="limpiarType()">
+                            <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
+                        </button>
+                        <button type="button" id="btn-delete" class="btn p-0 border-0" title="Delete type" onclick="eliminarType()">
+                            <i class="bi bi-trash" style="font-size: 22px; color: #d6336c;"></i>
+                        </button>
+                    </div>
+                    <div class="small text-muted mt-2">Leave the form empty and Save to create a new type. Click a row to edit it.</div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card shadow-sm p-3 bg-white">
+                <h6 class="mb-2 fw-bold" style="color: #FF48D8;"><i class="bi bi-grid-3x3-gap"></i> Device Types</h6>
+                <div class="table-responsive app-surface" style="max-height: calc(100vh - 220px); min-height: 200px; overflow-y: auto;">
+                    <table id="tabla-types" class="table table-sm table-hover align-middle border-bottom">
+                        <thead class="table-dark sticky-top">
+                            <tr><th>ID</th><th>Description</th><th class="text-center">In use</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for t in grid_rows %}
+                            <tr class="type-row" style="cursor: pointer;" data-id="{{ t.id }}"
+                                data-type="{{ t.type }}" data-used="{% if t.used %}1{% else %}0{% endif %}">
+                                <td>{{ t.id }}</td>
+                                <td>{{ t.type }}</td>
+                                <td class="text-center">{% if t.used %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/device_types.js' %}?v=1"></script>
+
+{% if messages %}
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+            Swal.fire({
+                title: 'OE Inventory',
+                text: '{{ message|escapejs }}',
+                imageUrl: '/static/octopus.png',
+                imageWidth: 35, imageHeight: 35, imageAlt: 'Octopus Logo',
+                icon: '{% if message.tags == "success" %}success{% elif message.tags == "error" %}error{% elif message.tags == "warning" %}warning{% else %}info{% endif %}',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#FF48D8',
+            });
+        {% endfor %}
+    });
+    </script>
+{% endif %}
+{% endblock %}

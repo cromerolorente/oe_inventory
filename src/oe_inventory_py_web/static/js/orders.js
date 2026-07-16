@@ -44,6 +44,7 @@ function buscarPedidoAjax() {
 
 function fillOrder(d) {
     document.getElementById('input-code').value = d.id;
+    document.getElementById('input-id-type').value = d.id_type || '';
     document.getElementById('input-article').value = d.article || '';
     document.getElementById('input-uds').value = d.uds;
     document.getElementById('input-date').value = d.date || '';

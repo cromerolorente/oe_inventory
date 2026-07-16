@@ -178,7 +178,7 @@ class OeesDevices(models.Model):
     id_device = models.BigAutoField(primary_key=True)
     serial_number = models.CharField(max_length=30)
     company = models.ForeignKey('OeesCompanies', on_delete=models.SET_NULL, blank=True, null=True, db_column='company')
-    type = models.CharField(max_length=25)
+    type = models.ForeignKey('OeesDevicesType', on_delete=models.SET_NULL, blank=True, null=True, db_column='type')
     brand = models.CharField(max_length=25)
     model = models.CharField(max_length=50)
     screen_size = models.CharField(max_length=15, blank=True, null=True)
@@ -203,6 +203,18 @@ class OeesDevices(models.Model):
     class Meta:
         managed = True
         db_table = 'oees_devices'
+
+
+class OeesDevicesType(models.Model):
+    id_device_type = models.AutoField(primary_key=True)
+    type = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.type
+
+    class Meta:
+        managed = True
+        db_table = 'oees_devices_type'
 
 
 class OeesDocs(models.Model):
@@ -397,6 +409,8 @@ class OeesOrders(models.Model):
     tramitado = models.IntegerField()
     cancelado = models.IntegerField()
     recibido = models.IntegerField()
+    id_type = models.ForeignKey('OeesDevicesType', on_delete=models.DO_NOTHING,
+                                db_column='id_type', blank=True, null=True)
 
     def __str__(self):
         return f"Id: {self.id_order} - Article: {self.article}"

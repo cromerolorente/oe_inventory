@@ -3,7 +3,7 @@
     <table id="{{ table_id }}" class="table table-sm table-hover align-middle border-bottom">
         <thead class="table-dark sticky-top">
             <tr>
-                <th>ID</th><th>Article</th><th>Date</th><th class="text-center">Uds</th>
+                <th>ID</th><th>Type</th><th>Article</th><th>Date</th><th class="text-center">Uds</th>
                 {% if show_processed %}<th class="text-center">Processed</th>{% endif %}
             </tr>
         </thead>
@@ -11,6 +11,7 @@
             {% for row in rows %}
             <tr class="order-row" style="cursor: pointer;" data-id="{{ row.id }}">
                 <td>{{ row.id }}</td>
+                <td>{{ row.type }}</td>
                 <td>{{ row.article }}</td>
                 <td>{{ row.date|date:'d-m-Y' }}</td>
                 <td class="text-center">{{ row.uds }}</td>

@@ -41,6 +41,7 @@
                 {% if request.user.devices %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_devices' %}"
                     onclick="document.documentElement.style.cursor='wait';">Devices</a>
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_devices_type' %}">Device Types</a>
                 {% endif %}
                 {% if request.user.licenses %}
                 <a class="btn btn-outline-secondary btn-sm" href="{% url 'frm_licenses' %}">Licenses</a>

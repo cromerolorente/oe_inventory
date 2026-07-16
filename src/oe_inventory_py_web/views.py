@@ -23,6 +23,7 @@ from .forms import DesktopLoginForm
 from .models import (
     OeesAccessCards, OeesAccessCardsPins, OeesAccessCardsStates, OeesAccessCardsVisitors,
     OeesAccessCardsVisitorsNotes, OeesAccessKeys, OeesCompanies, OeesDelegations, OeesDevices,
+    OeesDevicesType,
     OeesDocs, OeesFiberLines, OeesFiberLinesIncidences, OeesIncorporations,
     OeesLicenses, OeesMobileLines, OeesMobilePhones, OeesOrders, OeesPrinters,
     OeesProvinces, OeesStaff, OeesUnderRepair,
@@ -98,7 +99,7 @@ def api_get_device(request):
         data = {
             'success': True,
             'serial': getattr(device, 'serial_number', '') or '',
-            'type': getattr(device, 'type', '') or '',
+            'type': device.type_id or '',
             'brand': getattr(device, 'brand', '') or '',
             'model': getattr(device, 'model', '') or '',
             'company': company_val,
@@ -266,7 +267,8 @@ def frm_devices_view(request):
                     )
 
                     device.company = company
-                    device.type = request.POST.get('type', '')
+                    _type_val = request.POST.get('type', '').strip()
+                    device.type_id = int(_type_val) if _type_val.isdigit() else None
                     device.brand = request.POST.get('brand', '')
                     device.model = request.POST.get('model', '')
                     device.screen_size = request.POST.get('screen_size', '')
@@ -366,7 +368,7 @@ def frm_devices_view(request):
                     messages.error(request, f"Can't manage support: Device with SN '{serial_number}' not found.")
 
     # 2. Load the device list (QuerySet) applying GET filters.
-    devices_qs = OeesDevices.objects.all().select_related('persone')
+    devices_qs = OeesDevices.objects.all().select_related('persone', 'type')
     staff_id = request.GET.get('id_staff', '')
     if staff_id and staff_id.isdigit():
         devices_qs = devices_qs.filter(persone__id_staff=staff_id)
@@ -388,13 +390,14 @@ def frm_devices_view(request):
             'Assigned To', 'Value (€)'
         ]
         ws.append(headers)
-        
+
         for item in devices_qs:
             assigned = item.persone.name if item.persone else "Sin Asignar"
             mobile = "Yes" if item.mobile_line else "No"
             insert_date = item.insert_date.strftime('%Y-%m-%d') if item.insert_date else ""
             ws.append([
-                item.serial_number, item.type, item.brand, item.model, item.screen_size,
+                item.serial_number, item.type.type if item.type_id else '',
+                item.brand, item.model, item.screen_size,
                 item.hd, item.memory, item.imei, mobile, item.pin_puk, item.origin,
                 insert_date, item.bill_number, assigned, item.value
             ])
@@ -409,9 +412,7 @@ def frm_devices_view(request):
     agg = devices_qs.aggregate(total=Count('id_device'), value=Sum('value'))
     total_devices = agg['total'] or 0
     total_value = agg['value'] or 0.0
-    unique_types = sorted(
-        t for t in devices_qs.values_list('type', flat=True).distinct() if t
-    )
+    device_types = OeesDevicesType.objects.all().order_by('type')
 
     # Resolve the assigned staff name safely. Legacy rows may store an empty
     # string in `persone` instead of NULL, which would make the template's FK
@@ -430,7 +431,7 @@ def frm_devices_view(request):
         'total_value': total_value,
         'device_data': device_data,
         'device_staff': device_staff,
-        'unique_types': unique_types,
+        'device_types': device_types,
         'under_repair': under_repair,
         'staff_filter': staff_id,
     }
@@ -445,7 +446,7 @@ def api_devices_datatable(request):
     Returns one page of rows at a time (with search/order/paginate done in the
     database), so the screen no longer ships the entire inventory on load.
     """
-    qs = OeesDevices.objects.select_related('persone')
+    qs = OeesDevices.objects.select_related('persone', 'type')
 
     # Honour the optional "show only this staff's devices" filter.
     staff_id = request.GET.get('id_staff', '')
@@ -459,7 +460,7 @@ def api_devices_datatable(request):
     if search:
         qs = qs.filter(
             Q(serial_number__icontains=search) |
-            Q(type__icontains=search) |
+            Q(type__type__icontains=search) |
             Q(brand__icontains=search) |
             Q(model__icontains=search) |
             Q(imei__icontains=search) |
@@ -472,7 +473,7 @@ def api_devices_datatable(request):
 
     # Ordering: column index -> model field, matching the table's columns.
     order_columns = [
-        'serial_number', 'type', 'brand', 'model', 'screen_size', 'hd',
+        'serial_number', 'type__type', 'brand', 'model', 'screen_size', 'hd',
         'memory', 'imei', 'mobile_line', 'pin_puk', 'origin', 'insert_date',
         'bill_number', 'persone__name', 'value',
     ]
@@ -506,7 +507,7 @@ def api_devices_datatable(request):
     def _row(d):
         return {
             'serial': d.serial_number,
-            'type': d.type or '',
+            'type': d.type.type if d.type_id else '',
             'brand': d.brand or '',
             'model': d.model or '',
             'screen': d.screen_size or '-',
@@ -861,13 +862,13 @@ def staff_assigned_items(staff_id):
     total_value = 0.0
 
     devices = (OeesDevices.objects.filter(persone_id=staff_id)
-               .values('id_device', 'serial_number', 'type', 'brand', 'model',
+               .values('id_device', 'serial_number', 'type__type', 'brand', 'model',
                        'origin', 'insert_date', 'obs', 'value')
                .order_by('-id_device'))
     for d in devices:
         value = float(d['value'] or 0)
         total_value += value
-        items.append({'id': f"D{d['id_device']}", 'serial': d['serial_number'] or '', 'type': d['type'] or '',
+        items.append({'id': f"D{d['id_device']}", 'serial': d['serial_number'] or '', 'type': d['type__type'] or '',
                       'brand': d['brand'] or '', 'model': d['model'] or '', 'origin': d['origin'] or '',
                       'date': _fmt_date(d['insert_date']), 'obs': d['obs'] or '', 'value': value})
 
@@ -2136,8 +2137,8 @@ def frm_allocations_view(request):
             return _allocations_auto_doc(request)
         return _allocations_assign(request)
 
-    device_types = list(_unassigned(OeesDevices.objects).exclude(type='').exclude(type__isnull=True)
-                        .values_list('type', flat=True).distinct().order_by('type'))
+    device_types = list(_unassigned(OeesDevices.objects).exclude(type__isnull=True)
+                        .values_list('type_id', 'type__type').distinct().order_by('type__type'))
     device_brands = list(_unassigned(OeesDevices.objects).exclude(brand='').exclude(brand__isnull=True)
                          .values_list('brand', flat=True).distinct().order_by('brand'))
     license_types = list(_unassigned(OeesLicenses.objects).exclude(type='').exclude(type__isnull=True)
@@ -2683,8 +2684,10 @@ def api_get_incorporation(request):
 # ==========================================================================
 
 def _order_rows(qs):
-    return [{'id': o.id_order, 'article': o.article, 'date': o.insert_date,
-             'uds': o.uds, 'processed': o.tramitado} for o in qs]
+    return [{'id': o.id_order, 'type': o.id_type.type if o.id_type_id else '',
+             'article': o.article, 'date': o.insert_date,
+             'uds': o.uds, 'processed': o.tramitado}
+            for o in qs.select_related('id_type')]
 
 
 def _orders_export_excel(tab):
@@ -2696,7 +2699,7 @@ def _orders_export_excel(tab):
     else:
         tab = 'pending'
         qs = qs.filter(cancelado=0, recibido=0)
-    qs = qs.order_by('-id_order')
+    qs = qs.select_related('id_type').order_by('-id_order')
 
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -2705,9 +2708,10 @@ def _orders_export_excel(tab):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = tab.capitalize()
-    ws.append(['ID', 'Article', 'Date', 'Uds', 'Processed'])
+    ws.append(['ID', 'Type', 'Article', 'Date', 'Uds', 'Processed'])
     for o in qs:
-        ws.append([o.id_order, o.article, o.insert_date.strftime('%Y-%m-%d') if o.insert_date else '',
+        ws.append([o.id_order, o.id_type.type if o.id_type_id else '', o.article,
+                   o.insert_date.strftime('%Y-%m-%d') if o.insert_date else '',
                    o.uds, 'Yes' if o.tramitado else 'No'])
     wb.save(response)
     return response
@@ -2745,6 +2749,7 @@ def frm_orders_view(request):
         'received_rows': _order_rows(
             OeesOrders.objects.filter(recibido=1).order_by('-id_order')),
         'preselected_id': request.GET.get('order', '').strip(),
+        'device_types': OeesDevicesType.objects.all().order_by('type'),
         'is_reader': _is_reader(user),
     }
     return render(request, 'oe_inventory_py_web/frmOrders.html', context)
@@ -2757,8 +2762,13 @@ def _order_save(request):
     uds_str = request.POST.get('uds', '').strip()
     date_str = request.POST.get('insert_date', '').strip()
 
+    id_type_str = request.POST.get('id_type', '').strip()
+
     if not article:
         messages.error(request, "The 'Article' field cannot be empty.")
+        return redirect('frm_orders')
+    if not id_type_str.isdigit():
+        messages.error(request, "Please select a Type.")
         return redirect('frm_orders')
     if not uds_str.isdigit():
         messages.error(request, "The 'Uds' field must be a whole number.")
@@ -2781,11 +2791,13 @@ def _order_save(request):
             order.article = article
             order.insert_date = insert_date
             order.uds = uds
+            order.id_type_id = int(id_type_str)
             order.notes = f"{now} - Modified by {user.username}\n{previous}".strip()
             order.save()
         else:
             OeesOrders.objects.create(
                 article=article, insert_date=insert_date, uds=uds,
+                id_type_id=int(id_type_str),
                 tramitado=0, cancelado=0, recibido=0,
                 notes=f"{now} - Created by {user.username}",
             )
@@ -2845,11 +2857,96 @@ def api_get_order(request):
 
     data = {
         'id': o.id_order, 'article': o.article or '', 'uds': o.uds,
+        'id_type': o.id_type_id or '',
         'date': o.insert_date.strftime('%Y-%m-%d') if o.insert_date else '',
         'notes': o.notes or '',
         'tramitado': o.tramitado, 'cancelado': o.cancelado, 'recibido': o.recibido,
     }
     return JsonResponse({'success': True, 'exists': True, 'data': data})
+
+
+# ==========================================================================
+# Device Types maintenance screen (oees_devices_type lookup table)
+# ==========================================================================
+
+def _device_type_in_use(pk):
+    """A type is 'in use' when any device or order references it, in which case
+    it can't be renamed or deleted."""
+    return (OeesDevices.objects.filter(type_id=pk).exists()
+            or OeesOrders.objects.filter(id_type_id=pk).exists())
+
+
+@login_required
+def frm_devices_type_view(request):
+    user = request.user
+    # Same permission as the Devices screen.
+    if not user.devices:
+        messages.error(request, "You don't have permission to access Device Types.")
+        return redirect('mdi_home')
+
+    if request.method == 'POST':
+        if _is_reader(user):
+            messages.error(request, "You have a reader profile and can't modify data.")
+            return redirect('frm_devices_type')
+        action = request.POST.get('action', '')
+        if action == 'save':
+            return _device_type_save(request)
+        if action == 'delete':
+            return _device_type_delete(request)
+        return redirect('frm_devices_type')
+
+    rows = []
+    for t in OeesDevicesType.objects.all().order_by('type'):
+        rows.append({'id': t.pk, 'type': t.type, 'used': _device_type_in_use(t.pk)})
+    context = {'grid_rows': rows, 'is_reader': _is_reader(user)}
+    return render(request, 'oe_inventory_py_web/frmDevicesType.html', context)
+
+
+def _device_type_save(request):
+    code = request.POST.get('code', '').strip()
+    name = request.POST.get('type', '').strip()
+    if not name:
+        messages.error(request, "The description cannot be empty.")
+        return redirect('frm_devices_type')
+    try:
+        if code:
+            obj = OeesDevicesType.objects.filter(pk=code).first()
+            if not obj:
+                messages.error(request, "Device type not found.")
+                return redirect('frm_devices_type')
+            if _device_type_in_use(obj.pk):
+                messages.error(request, "This type is used by devices or orders; it can't be modified.")
+                return redirect('frm_devices_type')
+            if OeesDevicesType.objects.filter(type__iexact=name).exclude(pk=obj.pk).exists():
+                messages.error(request, "Another device type with that description already exists.")
+                return redirect('frm_devices_type')
+            obj.type = name
+            obj.save(update_fields=['type'])
+            messages.success(request, "Device type updated.")
+        else:
+            if OeesDevicesType.objects.filter(type__iexact=name).exists():
+                messages.error(request, "That device type already exists.")
+                return redirect('frm_devices_type')
+            OeesDevicesType.objects.create(type=name)
+            messages.success(request, "Device type created.")
+    except Exception:
+        logger.exception("Error saving device type %s", code)
+        messages.error(request, "An error occurred while saving the device type.")
+    return redirect('frm_devices_type')
+
+
+def _device_type_delete(request):
+    code = request.POST.get('code', '').strip()
+    obj = OeesDevicesType.objects.filter(pk=code).first()
+    if not obj:
+        messages.error(request, "Device type not found.")
+        return redirect('frm_devices_type')
+    if _device_type_in_use(obj.pk):
+        messages.error(request, "This type is used by devices or orders; it can't be deleted.")
+        return redirect('frm_devices_type')
+    obj.delete()
+    messages.success(request, "Device type deleted.")
+    return redirect('frm_devices_type')
 
 
 # ==========================================================================
@@ -3329,12 +3426,6 @@ def api_get_line(request):
 # Availability screen (web port of frmAvailability.py)
 # ==========================================================================
 
-_AVAILABILITY_KEYS = [
-    "LAPTOP WIN", "LAPTOP MBA", "LAPTOP MBP", "KEYBOARD", "MOUSE", "SCREEN",
-    "CORDED HEADSET", "CORDLESS HEADSET", "USBC HUB", "PHONE",
-]
-
-
 def _availability_rows():
     data = {}
 
@@ -3342,9 +3433,11 @@ def _availability_rows():
         return data.setdefault(article, {'stock': 0, 'needs': 0, 'orders': 0})
 
     with connection.cursor() as cur:
-        # Stock: unassigned devices grouped by type.
-        cur.execute("SELECT COUNT(*), type FROM oees_devices "
-                    "WHERE (persone IS NULL OR persone = '') GROUP BY type")
+        # Stock: unassigned devices grouped by type NAME (type is now a FK to
+        # oees_devices_type; join to resolve the article name).
+        cur.execute("SELECT COUNT(*), t.type FROM oees_devices d "
+                    "LEFT JOIN oees_devices_type t ON d.type = t.id_device_type "
+                    "WHERE (d.persone IS NULL OR d.persone = '') GROUP BY t.type")
         for qty, article in cur.fetchall():
             if article:
                 bucket(article)['stock'] = int(qty or 0)
@@ -3372,15 +3465,15 @@ def _availability_rows():
             if qty > 0:
                 bucket(article)['needs'] = qty
 
-        # Orders: pending orders matched by article text.
-        cur.execute("SELECT article, uds FROM oees_orders WHERE recibido = 0 AND cancelado = 0")
+        # Orders: pending orders grouped by their device type (id_type -> name),
+        # so they line up with stock/needs by the same oees_devices_type name
+        # (replaces the old, unreliable free-text article matching).
+        cur.execute("SELECT t.type, SUM(o.uds) FROM oees_orders o "
+                    "JOIN oees_devices_type t ON o.id_type = t.id_device_type "
+                    "WHERE o.recibido = 0 AND o.cancelado = 0 GROUP BY t.type")
         for article, uds in cur.fetchall():
-            uds = int(uds or 0)
-            article_upper = (article or '').upper()
-            for key in _AVAILABILITY_KEYS:
-                if key in article_upper:
-                    bucket(key)['orders'] += uds
-                    break
+            if article:
+                bucket(article)['orders'] += int(uds or 0)
 
     rows = []
     for article in sorted(data):
@@ -3486,8 +3579,9 @@ def _not_returned_rows():
                 'value': value,
             })
 
-        for d in OeesDevices.objects.filter(persone_id=staff.id_staff):
-            desc = ' '.join(x for x in [d.type, d.brand, d.model] if x).strip()
+        for d in OeesDevices.objects.filter(persone_id=staff.id_staff).select_related('type'):
+            dtype = d.type.type if d.type_id else ''
+            desc = ' '.join(x for x in [dtype, d.brand, d.model] if x).strip()
             add('Device', d.serial_number, desc, d.value)
         for lic in OeesLicenses.objects.filter(persone_id=staff.id_staff):
             add('License', lic.serial_number, lic.type, lic.value)

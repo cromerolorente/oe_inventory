@@ -7,10 +7,16 @@ from django.urls import reverse
 
 from .models import (
     OeesAccessCards, OeesAccessCardsStates, OeesAccessCardsVisitors, OeesAccessKeys,
-    OeesCompanies, OeesDelegations, OeesDevices, OeesFiberLines, OeesFiberLinesIncidences,
-    OeesIncorporations, OeesLicenses, OeesMobileLines, OeesMobilePhones, OeesOrders,
-    OeesPrinters, OeesStaff, OeesUnderRepair,
+    OeesCompanies, OeesDelegations, OeesDevices, OeesDevicesType, OeesFiberLines,
+    OeesFiberLinesIncidences, OeesIncorporations, OeesLicenses, OeesMobileLines,
+    OeesMobilePhones, OeesOrders, OeesPrinters, OeesStaff, OeesUnderRepair,
 )
+
+
+def _dtype(name):
+    """Helper: get/create an OeesDevicesType so tests can pass a real FK for the
+    device `type` field (which is now a ForeignKey)."""
+    return OeesDevicesType.objects.get_or_create(type=name)[0]
 
 
 class PublicPagesTests(TestCase):
@@ -118,7 +124,7 @@ class StaffScreenTests(TestCase):
         User = get_user_model()
         admin = User.objects.create_user(username='rel_u', password='pass12345', staff=1, reader=0)
         dev = OeesDevices.objects.create(
-            serial_number='DEV-R1', type='LAPTOP', brand='Dell', model='X',
+            serial_number='DEV-R1', type=_dtype('LAPTOP'), brand='Dell', model='X',
             origin='New', insert_date=date(2026, 1, 1), value=0.0, persone=self.staff)
         with tempfile.TemporaryDirectory() as tmp, override_settings(MEDIA_ROOT=tmp):
             self.client.force_login(admin)
@@ -140,7 +146,7 @@ class StaffScreenTests(TestCase):
         User = get_user_model()
         admin = User.objects.create_user(username='term_u', password='pass12345', staff=1, reader=0)
         dev = OeesDevices.objects.create(
-            serial_number='DEV-T1', type='LAPTOP', brand='Dell', model='X',
+            serial_number='DEV-T1', type=_dtype('LAPTOP'), brand='Dell', model='X',
             origin='New', insert_date=date(2026, 1, 1), value=0.0, persone=self.staff)
 
         with tempfile.TemporaryDirectory() as tmp, override_settings(MEDIA_ROOT=tmp):
@@ -532,7 +538,7 @@ class AllocationsScreenTests(TestCase):
         self.user = User.objects.create_user(username='al_user', password='pass12345', allocations=1, reader=0)
         self.staff = OeesStaff.objects.create(name='Joe Worker', persona_fisica=1, notes='', state=1)
         self.device = OeesDevices.objects.create(
-            serial_number='DV-1', type='Laptop', brand='Dell', model='X',
+            serial_number='DV-1', type=_dtype('Laptop'), brand='Dell', model='X',
             origin='New', insert_date=date(2026, 1, 1), value=0.0,
         )
         self.phone = OeesMobilePhones.objects.create(serial_number='PH-A', type='', value=0.0)
@@ -807,6 +813,32 @@ class IncorporationsScreenTests(TestCase):
         pdf = build_incorporation_form_pdf({'id': 99999999, 'name': 'Ghost'})
         self.assertFalse(incorporation_mail.apply_pdf(pdf, 'x@example.com'))
 
+    def test_checkbox_on_handles_reader_rewrites(self):
+        # Some PDF readers rewrite checkbox "on" states (e.g. /Yes -> /0 or /1);
+        # anything that isn't Off/empty must count as checked.
+        from oe_inventory_py_web.incorporation_mail import _checkbox_on
+        for on in ('/Yes', '/0', '/1', 'Yes', '/On'):
+            self.assertTrue(_checkbox_on(on), on)
+        for off in ('/Off', 'Off', '', None):
+            self.assertFalse(_checkbox_on(off), off)
+
+    def test_mouse_selection_reads_rewritten_radio(self):
+        # Some readers rewrite the mouse radio export names to /0,/1 on save; the
+        # selection must still be read by widget position (kid 0 right, 1 left).
+        import io
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        from pypdf import PdfReader
+        from oe_inventory_py_web.incorporation_mail import _mouse_selection
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf, pagesize=A4)
+        c.drawString(72, 750, 'mouse test')
+        c.acroForm.radio(name='mouse_hand', value='0', selected=False, x=100, y=700, size=12, fieldFlags='radio')
+        c.acroForm.radio(name='mouse_hand', value='1', selected=True, x=300, y=700, size=12, fieldFlags='radio')
+        c.save()
+        reader = PdfReader(io.BytesIO(buf.getvalue()))
+        self.assertEqual(_mouse_selection(reader), 'left')
+
     def test_apply_pdf_flat_pdf_ignored(self):
         # A flat PDF with no AcroForm fields (a photo/printout of the document)
         # is not an editable form -> ignored.
@@ -879,9 +911,10 @@ class OrdersScreenTests(TestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username='or_user', password='pass12345', orders=1, reader=0)
+        self.dtype = _dtype('LAPTOP')
         self.order = OeesOrders.objects.create(
             article='Cables', uds=10, insert_date=date(2026, 1, 1), notes='',
-            tramitado=0, cancelado=0, recibido=0,
+            tramitado=0, cancelado=0, recibido=0, id_type=self.dtype,
         )
 
     def test_orders_requires_login(self):
@@ -902,6 +935,7 @@ class OrdersScreenTests(TestCase):
         data = response.json()
         self.assertTrue(data['exists'])
         self.assertEqual(data['data']['article'], 'Cables')
+        self.assertEqual(data['data']['id_type'], self.dtype.pk)
 
     def test_api_get_order_not_found(self):
         self.client.force_login(self.user)
@@ -912,9 +946,11 @@ class OrdersScreenTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.post(reverse('frm_orders'), {
             'action': 'save', 'article': 'Mice', 'uds': '5', 'insert_date': '2026-06-01',
+            'id_type': str(self.dtype.pk),
         })
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(OeesOrders.objects.filter(article='Mice', uds=5).exists())
+        saved = OeesOrders.objects.get(article='Mice', uds=5)
+        self.assertEqual(saved.id_type_id, self.dtype.pk)
 
     def test_process_order(self):
         self.client.force_login(self.user)
@@ -1019,7 +1055,7 @@ class AvailabilityScreenTests(TestCase):
         User = get_user_model()
         self.user = User.objects.create_user(username='av_user', password='pass12345', disponibility=1)
         OeesDevices.objects.create(
-            serial_number='AV-1', type='LAPTOP WIN', brand='Dell', model='X',
+            serial_number='AV-1', type=_dtype('LAPTOP WIN'), brand='Dell', model='X',
             origin='New', insert_date=date(2026, 1, 1), value=0.0,
         )
 
@@ -1033,6 +1069,23 @@ class AvailabilityScreenTests(TestCase):
         response = self.client.get(reverse('frm_availability'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'oe_inventory_py_web/frmAvailability.html')
+
+    def test_orders_counted_by_id_type(self):
+        # The Orders column must count pending orders by their id_type (FK to
+        # oees_devices_type), lined up with stock by the same type name.
+        from oe_inventory_py_web.views import _availability_rows
+        laptop = _dtype('LAPTOP WIN')  # same type as the AV-1 stock device
+        OeesOrders.objects.create(
+            article='2 laptops', uds=2, insert_date=date(2026, 1, 1), notes='',
+            tramitado=0, cancelado=0, recibido=0, id_type=laptop)
+        # A received/cancelled order of the same type must NOT count.
+        OeesOrders.objects.create(
+            article='old', uds=9, insert_date=date(2026, 1, 1), notes='',
+            tramitado=0, cancelado=1, recibido=0, id_type=laptop)
+        rows = {r['article']: r for r in _availability_rows()}
+        self.assertIn('LAPTOP WIN', rows)
+        self.assertEqual(rows['LAPTOP WIN']['orders'], 2)
+        self.assertEqual(rows['LAPTOP WIN']['stock'], 1)  # AV-1
 
     def test_availability_excel_export(self):
         # Only non-reader profiles can download the Excel export.
@@ -1063,7 +1116,7 @@ class UnderRepairScreenTests(TestCase):
         User = get_user_model()
         self.user = User.objects.create_user(username='ur_user', password='pass12345', under_repair=1, reader=0)
         OeesDevices.objects.create(
-            serial_number='UR-1', type='Laptop', brand='Dell', model='X',
+            serial_number='UR-1', type=_dtype('Laptop'), brand='Dell', model='X',
             origin='New', insert_date=date(2026, 1, 1), value=0.0,
         )
         self.repair = OeesUnderRepair.objects.create(
@@ -1106,7 +1159,7 @@ class DistInvoicesScreenTests(TestCase):
             company_id=company.id_company, delegation_id=deleg.id_delegation, department='IT',
         )
         OeesDevices.objects.create(
-            serial_number='DI-1', type='Laptop', brand='Dell', model='XPS', origin='New',
+            serial_number='DI-1', type=_dtype('Laptop'), brand='Dell', model='XPS', origin='New',
             insert_date=date(2026, 1, 1), value=1000.0, bill_number='BILL-1', persone=self.staff,
         )
 
@@ -1657,10 +1710,10 @@ class DevicesGridServerSideTests(TestCase):
         self.company = OeesCompanies.objects.create(name='Acme')
         for i in range(3):
             OeesDevices.objects.create(
-                serial_number=f'SN-{i}', type='LAPTOP', brand='Dell',
+                serial_number=f'SN-{i}', type=_dtype('LAPTOP'), brand='Dell',
                 model=f'M{i}', origin='New', insert_date=date(2026, 1, 1), value=100.0)
         OeesDevices.objects.create(
-            serial_number='PHONE-9', type='PHONE', brand='Apple',
+            serial_number='PHONE-9', type=_dtype('PHONE'), brand='Apple',
             model='15', origin='New', insert_date=date(2026, 1, 1), value=900.0,
             bill_number='FAC-2026-001')
 
@@ -1684,6 +1737,37 @@ class DevicesGridServerSideTests(TestCase):
         self.assertEqual({d['code'] for d in data}, {'SN-0', 'SN-1', 'SN-2'})
         # The description column shows the model.
         self.assertEqual(next(d for d in data if d['code'] == 'SN-0')['description'], 'M0')
+
+    def test_save_stores_type_as_fk_id(self):
+        # The edit form posts the type id (from the <select>); save must store it
+        # as the FK, and api_get_device must return that id back.
+        t = _dtype('SERVER')
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices'), {
+            'action': 'save', 'serial_number': 'SV-1', 'type': str(t.pk),
+            'brand': 'HP', 'model': 'DL380', 'id_company': str(self.company.id_company),
+        })
+        from oe_inventory_py_web.models import OeesDevices
+        dev = OeesDevices.objects.get(serial_number='SV-1')
+        self.assertEqual(dev.type_id, t.pk)
+        resp = self.client.get(reverse('api_get_device'), {'serial_number': 'SV-1'})
+        self.assertEqual(resp.json()['type'], t.pk)
+
+    def test_grid_shows_type_name_from_lookup(self):
+        # After migration oees_devices.type holds the oees_devices_type id; the
+        # grid must display the type NAME resolved from the lookup table.
+        from oe_inventory_py_web.models import OeesDevices, OeesDevicesType
+        t = OeesDevicesType.objects.create(type='DESKTOP')
+        OeesDevices.objects.create(
+            serial_number='D-TYPE', type=t, brand='B', model='M',
+            origin='New', insert_date=date(2026, 1, 1), value=1.0)
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('api_devices_datatable'),
+                               {'search[value]': 'DESKTOP', 'start': 0, 'length': 10})
+        rows = resp.json()['data']
+        # Searching by the type NAME finds it, and the row shows the name.
+        self.assertEqual([r['serial'] for r in rows], ['D-TYPE'])
+        self.assertEqual(rows[0]['type'], 'DESKTOP')
 
     def test_datatable_returns_paginated_json(self):
         self.client.force_login(self.user)
@@ -1978,11 +2062,11 @@ class NotReturnedScreenTests(TestCase):
         self.active = OeesStaff.objects.create(
             name='Andy Active', notes='', persona_fisica=1, state=1)
         OeesDevices.objects.create(
-            serial_number='DEV-GONE', type='LAPTOP', brand='Dell', model='X',
+            serial_number='DEV-GONE', type=_dtype('LAPTOP'), brand='Dell', model='X',
             origin='New', insert_date=date(2026, 1, 1), value=500.0,
             persone=self.gone, mobile_line=0)
         OeesDevices.objects.create(
-            serial_number='DEV-ACTIVE', type='LAPTOP', brand='HP', model='Y',
+            serial_number='DEV-ACTIVE', type=_dtype('LAPTOP'), brand='HP', model='Y',
             origin='New', insert_date=date(2026, 1, 1), value=300.0,
             persone=self.active, mobile_line=0)
 
@@ -2023,7 +2107,7 @@ class NotReturnedScreenTests(TestCase):
         spanish = OeesStaff.objects.create(
             name='Bob Spanish', notes='', persona_fisica=1, state=0, fecha_baja='15-03-2026')
         OeesDevices.objects.create(
-            serial_number='DEV-ES', type='LAPTOP', brand='Dell', model='Z',
+            serial_number='DEV-ES', type=_dtype('LAPTOP'), brand='Dell', model='Z',
             origin='New', insert_date=date(2026, 1, 1), value=100.0,
             persone=spanish, mobile_line=0)
         self.client.force_login(self.user)
@@ -3058,3 +3142,69 @@ class FooterCountsApiTests(TestCase):
             self.assertEqual(data['total_cards'], 4)
             # The requester is always counted as online.
             self.assertGreaterEqual(data['online_users'], 1)
+
+
+class DeviceTypesScreenTests(TestCase):
+    """Maintenance screen for oees_devices_type: add always; rename/delete only
+    when the type is not referenced by any device or order."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='dtypes', password='pass12345', devices=1, reader=0)
+        self.free = OeesDevicesType.objects.create(type='FREE TYPE')
+        self.used = OeesDevicesType.objects.create(type='USED TYPE')
+        OeesDevices.objects.create(
+            serial_number='DT-1', type=self.used, brand='B', model='M',
+            origin='New', insert_date=date(2026, 1, 1), value=0.0)
+
+    def test_requires_devices_permission(self):
+        User = get_user_model()
+        noperm = User.objects.create_user(username='noperm', password='pass12345', devices=0)
+        self.client.force_login(noperm)
+        resp = self.client.get(reverse('frm_devices_type'))
+        self.assertEqual(resp.status_code, 302)  # bounced to home
+
+    def test_page_renders(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse('frm_devices_type'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'oe_inventory_py_web/frmDevicesType.html')
+
+    def test_create_new_type(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices_type'), {'action': 'save', 'code': '', 'type': 'NEW TYPE'})
+        self.assertTrue(OeesDevicesType.objects.filter(type='NEW TYPE').exists())
+
+    def test_rename_free_type(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices_type'),
+                         {'action': 'save', 'code': str(self.free.pk), 'type': 'RENAMED'})
+        self.free.refresh_from_db()
+        self.assertEqual(self.free.type, 'RENAMED')
+
+    def test_rename_used_type_blocked(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices_type'),
+                         {'action': 'save', 'code': str(self.used.pk), 'type': 'NOPE'})
+        self.used.refresh_from_db()
+        self.assertEqual(self.used.type, 'USED TYPE')  # unchanged
+
+    def test_delete_free_type(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices_type'), {'action': 'delete', 'code': str(self.free.pk)})
+        self.assertFalse(OeesDevicesType.objects.filter(pk=self.free.pk).exists())
+
+    def test_delete_used_type_blocked(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_devices_type'), {'action': 'delete', 'code': str(self.used.pk)})
+        self.assertTrue(OeesDevicesType.objects.filter(pk=self.used.pk).exists())
+
+    def test_delete_blocked_when_referenced_by_order(self):
+        # A type referenced only by an order (no device) is still protected.
+        self.client.force_login(self.user)
+        OeesOrders.objects.create(
+            article='x', uds=1, insert_date=date(2026, 1, 1), notes='',
+            tramitado=0, cancelado=0, recibido=0, id_type=self.free)
+        self.client.post(reverse('frm_devices_type'), {'action': 'delete', 'code': str(self.free.pk)})
+        self.assertTrue(OeesDevicesType.objects.filter(pk=self.free.pk).exists())

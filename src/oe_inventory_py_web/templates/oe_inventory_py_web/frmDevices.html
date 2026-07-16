@@ -68,14 +68,12 @@ and is tied to window 'load' which fires once the table is fully ready.
                             </select>
 
                             <label class="form-label small mb-1">Type</label>
-                            <input type="text" id="input-type" class="form-control form-control-sm mb-2" name="type" list="type-options"
-                                value="{{ device_data.type|default:'' }}" autocomplete="off">
-
-                            <datalist id="type-options">
-                                {% for type_name in unique_types %}
-                                    <option value="{{ type_name }}"></option>
+                            <select id="input-type" class="form-select form-select-sm mb-2" name="type">
+                                <option value="">-- Type --</option>
+                                {% for dt in device_types %}
+                                    <option value="{{ dt.pk }}" {% if device_data.type_id == dt.pk %}selected{% endif %}>{{ dt.type }}</option>
                                 {% endfor %}
-                            </datalist>
+                            </select>
 
                             <label class="form-label small mb-1">Brand</label>
                             <input type="text" id="input-brand" class="form-control form-control-sm mb-2" name="brand" value="{{ device_data.brand|default:'' }}">

@@ -59,6 +59,9 @@ urlpatterns = [
     path('licenses/', views.frm_licenses_view, name='frm_licenses'),
     path('api/get-license/', views.api_get_license, name='api_get_license'),
 
+    # Device Types maintenance (oees_devices_type)
+    path('device-types/', views.frm_devices_type_view, name='frm_devices_type'),
+
     # Mobile Phones screen
     path('phones/', views.frm_phones_view, name='frm_phones'),
     path('api/get-phone/', views.api_get_phone, name='api_get_phone'),

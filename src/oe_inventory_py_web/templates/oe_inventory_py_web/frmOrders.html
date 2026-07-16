@@ -24,7 +24,16 @@
                         placeholder="ID + Enter"
                         onkeydown="if(event.keyCode === 13){ event.preventDefault(); buscarPedidoAjax(); }">
                 </div>
-                <div class="col-md-7">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Type</label>
+                    <select id="input-id-type" name="id_type" class="form-select form-select-sm">
+                        <option value="">-- Type --</option>
+                        {% for dt in device_types %}
+                            <option value="{{ dt.pk }}">{{ dt.type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
                     <label class="form-label small mb-1">Article</label>
                     <input type="text" id="input-article" name="article" class="form-control form-control-sm">
                 </div>
@@ -101,7 +110,7 @@
     </div>
 </div>
 
-<script src="{% static 'js/orders.js' %}"></script>
+<script src="{% static 'js/orders.js' %}?v=2"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}
