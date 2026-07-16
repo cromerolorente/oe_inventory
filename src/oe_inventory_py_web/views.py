@@ -3458,7 +3458,7 @@ def _availability_rows():
         needs_map = {
             "LAPTOP WIN": s[0], "LAPTOP MBA": s[1], "LAPTOP MBP": s[2], "KEYBOARD": s[3],
             "MOUSE": s[4], "SCREEN": s[5], "CORDED HEADSET": s[6], "CORDLESS HEADSET": s[7],
-            "USBC HUB": s[8], "PHONE": s[9],
+            "USB-C HUB": s[8], "PHONE": s[9],
         }
         for article, qty in needs_map.items():
             qty = int(qty or 0)
