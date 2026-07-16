@@ -452,8 +452,8 @@ def build_incorporation_form_pdf(data):
     y -= 14
     checks = [
         ('chk_usbchub', 'USB-C HUB', data.get('usbchub')),
-        ('chk_pdf', 'PDF', data.get('pdf')),
-        ('chk_acad', 'ACAD', data.get('acad')),
+        ('chk_pdf', 'PDF Editor License', data.get('pdf')),
+        ('chk_acad', 'Autocad License', data.get('acad')),
         ('chk_keyboard', 'Keyboard', data.get('keyboard')),
         ('chk_kit', 'Mouse + Keyboard Kit', data.get('kit_mouse_keyb')),
     ]
