@@ -471,7 +471,11 @@ def build_incorporation_form_pdf(data):
         c.drawString(cx + size + 5, row_y - size + 4, lbl)
     y = row_y - 24
 
-    # Mouse preference as a radio group: only one of Right / Left can be picked.
+    # Mouse preference as a radio group so only ONE of Right / Left can ever be
+    # selected. IMPORTANT: the reader must not rely on the export value names
+    # ('right'/'left') because some PDF readers rewrite them to /0,/1 on save —
+    # incorporation_mail reads the selection by widget order instead (index
+    # 0 = Right, 1 = Left), so keep Right first, Left second here.
     hand = 'right' if data.get('mouse') else ('left' if data.get('left_mouse') else '')
     c.setFont('Helvetica', 9)
     for value, lbl, rx in (('right', 'Right Mouse', col_x[0]), ('left', 'Left Mouse', col_x[1])):

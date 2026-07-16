@@ -53,12 +53,47 @@ def _checkbox_on(value):
     return v not in ('', 'off', '/off', 'no', '0', 'false')
 
 
-def _read_pdf_fields(pdf_bytes):
-    """Return {field_name: value} for the AcroForm fields in the PDF."""
+def _read_pdf(pdf_bytes):
+    """Return (fields_dict, PdfReader). fields_dict is {name: /V}."""
     from pypdf import PdfReader
     reader = PdfReader(io.BytesIO(pdf_bytes))
     fields = reader.get_fields() or {}
-    return {name: f.get('/V') for name, f in fields.items()}
+    return {name: f.get('/V') for name, f in fields.items()}, reader
+
+
+def _mouse_selection(reader):
+    """Return 'right' / 'left' / '' for the mouse_hand radio group.
+
+    Reads the selection by WIDGET POSITION, not by the export value name: some
+    PDF readers rewrite radio export names to /0,/1 on save, which would break a
+    name-based lookup. The form draws Right first (kid 0) and Left second (kid 1);
+    we find the kid whose on-state (or /AS) equals the field value /V. Falls back
+    to the literal name when the reader preserved it."""
+    try:
+        acro = reader.trailer['/Root'].get('/AcroForm')
+        if not acro:
+            return ''
+        for f in acro.get('/Fields', []):
+            obj = f.get_object()
+            if obj.get('/T') != 'mouse_hand':
+                continue
+            v = obj.get('/V')
+            if v in (None, '', '/Off'):
+                return ''
+            vs = str(v).lstrip('/').lower()
+            if vs in ('right', 'left'):
+                return vs
+            kids = obj.get('/Kids') or []
+            for idx, kid in enumerate(kids):
+                ko = kid.get_object()
+                apn = (ko.get('/AP') or {}).get('/N') or {}
+                onstates = [k for k in apn.keys() if k != '/Off']
+                if v in onstates or ko.get('/AS') == v:
+                    return 'right' if idx == 0 else 'left'
+        return ''
+    except Exception:
+        logger.exception("Could not read mouse_hand selection")
+        return ''
 
 
 def _iter_pdf_attachments(msg):
@@ -81,7 +116,7 @@ def apply_pdf(pdf_bytes, sender):
     not to send) is ignored. The caller marks the email read regardless."""
     from .models import OeesIncorporations
 
-    fields = _read_pdf_fields(pdf_bytes)
+    fields, reader = _read_pdf(pdf_bytes)
     if not fields:
         logger.info("PDF from %s is not an editable form (no fields); ignoring", sender)
         return False
@@ -99,8 +134,8 @@ def apply_pdf(pdf_bytes, sender):
     for pdf_name, attr in _CHECKBOX_FIELDS.items():
         setattr(rec, attr, 1 if _checkbox_on(fields.get(pdf_name)) else 0)
 
-    # Mouse is a radio group (mouse_hand): 'right' -> mouse, 'left' -> left_mouse.
-    hand = str(fields.get('mouse_hand') or '').strip().lstrip('/').lower()
+    # Mouse is a radio group (exclusive by construction); read by widget position.
+    hand = _mouse_selection(reader)
     rec.mouse = 1 if hand == 'right' else 0
     rec.left_mouse = 1 if hand == 'left' else 0
 
