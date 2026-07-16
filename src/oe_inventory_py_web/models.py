@@ -289,6 +289,8 @@ class OeesIncorporations(models.Model):
     mouse = models.IntegerField(blank=True, null=True)          # right-handed mouse
     left_mouse = models.IntegerField(blank=True, null=True)     # left-handed mouse
     keyboard = models.IntegerField(blank=True, null=True)
+    # Mouse+keyboard kit: mutually exclusive with keyboard/mouse/left_mouse.
+    kit_mouse_keyb = models.IntegerField(blank=True, null=True)
     sweatshirt_size = models.CharField(max_length=4, blank=True, null=True)
     cordedh = models.IntegerField(db_column='cordedH')  # Field name made lowercase.
     cordlessh = models.IntegerField(db_column='cordlessH')  # Field name made lowercase.

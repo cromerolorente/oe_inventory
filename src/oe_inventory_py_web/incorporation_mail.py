@@ -139,6 +139,16 @@ def apply_pdf(pdf_bytes, sender):
     rec.mouse = 1 if hand == 'right' else 0
     rec.left_mouse = 1 if hand == 'left' else 0
 
+    # Mouse+keyboard kit is exclusive with keyboard/mouse/left_mouse: if the
+    # candidate ticked the kit, it wins and clears the individual items (readers
+    # can't enforce cross-field exclusivity, so we enforce it here).
+    kit = _checkbox_on(fields.get('chk_kit'))
+    rec.kit_mouse_keyb = 1 if kit else 0
+    if kit:
+        rec.keyboard = 0
+        rec.mouse = 0
+        rec.left_mouse = 0
+
     size = str(fields.get('sweatshirt_size') or '').strip().upper()
     rec.sweatshirt_size = size if size in _VALID_SIZES else None
 

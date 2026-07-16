@@ -2345,7 +2345,8 @@ def _incorporation_rows(qs):
             'sweatshirt': r.sweatshirt_size or '',
             'email_processed': r.email_processed or 0,
             'flags': [r.win, r.mba, r.mbp, r.phone, r.screen, r.mouse, r.left_mouse, r.keyboard,
-                      r.cordedh, r.cordlessh, r.usbchub, r.pdf, r.acad, r.send, r.receive],
+                      r.kit_mouse_keyb, r.cordedh, r.cordlessh, r.usbchub, r.pdf, r.acad,
+                      r.send, r.receive],
         })
     return rows
 
@@ -2457,6 +2458,12 @@ def _incorporation_save(request):
     mouse_left = _chk(request, 'left_mouse')
     if mouse_right and mouse_left:
         mouse_left = 0
+    keyboard = _chk(request, 'keyboard')
+    # The mouse+keyboard kit is exclusive with keyboard/mouse/left_mouse: if the
+    # kit is chosen, those individual items are cleared.
+    kit = _chk(request, 'kit_mouse_keyb')
+    if kit:
+        mouse_right = mouse_left = keyboard = 0
     common = {
         'name': name, 'email': request.POST.get('email', '').strip() or None,
         'company_id': company_id, 'department': department,
@@ -2468,7 +2475,8 @@ def _incorporation_save(request):
         'cordedh': 1 if headset == 'corded' else 0,
         'cordlessh': 1 if headset == 'cordless' else 0,
         'phone': _chk(request, 'phone'), 'screen': _chk(request, 'screen'),
-        'mouse': mouse_right, 'left_mouse': mouse_left, 'keyboard': _chk(request, 'keyboard'),
+        'mouse': mouse_right, 'left_mouse': mouse_left, 'keyboard': keyboard,
+        'kit_mouse_keyb': kit,
         'descartado': _chk(request, 'descartado'), 'usbchub': _chk(request, 'usbchub'),
         'pdf': _chk(request, 'pdf'), 'acad': _chk(request, 'acad'),
         'sweatshirt_size': sweatshirt or None,
@@ -2591,7 +2599,8 @@ def _incorporation_preferences(request):
         'address': rec.direccion or '', 'laptop': laptop, 'headset': headset,
         'is_remote': _is_remote_delegation(rec.delegation),
         'phone': rec.phone, 'mouse': rec.mouse, 'left_mouse': rec.left_mouse, 'screen': rec.screen,
-        'keyboard': rec.keyboard, 'usbchub': rec.usbchub, 'pdf': rec.pdf, 'acad': rec.acad,
+        'keyboard': rec.keyboard, 'kit_mouse_keyb': rec.kit_mouse_keyb,
+        'usbchub': rec.usbchub, 'pdf': rec.pdf, 'acad': rec.acad,
         'sweatshirt_size': rec.sweatshirt_size or '',
     }
     try:
@@ -2671,6 +2680,7 @@ def api_get_incorporation(request):
         'direccion': r.direccion or '', 'laptop': laptop, 'headset': headset,
         'phone': 1 if r.phone else 0, 'screen': 1 if r.screen else 0, 'mouse': 1 if r.mouse else 0,
         'left_mouse': 1 if r.left_mouse else 0,
+        'kit_mouse_keyb': 1 if r.kit_mouse_keyb else 0,
         'keyboard': 1 if r.keyboard else 0, 'descartado': 1 if r.descartado else 0,
         'usbchub': 1 if r.usbchub else 0, 'pdf': 1 if r.pdf else 0, 'acad': 1 if r.acad else 0,
         'sweatshirt_size': r.sweatshirt_size or '',
@@ -3451,14 +3461,14 @@ def _availability_rows():
         # Needs: pending incorporations.
         cur.execute(
             "SELECT SUM(win), SUM(mba), SUM(mbp), SUM(keyboard), SUM(mouse), SUM(screen), "
-            "SUM(cordedh), SUM(cordlessh), SUM(usbchub), SUM(phone) "
+            "SUM(cordedh), SUM(cordlessh), SUM(usbchub), SUM(phone), SUM(kit_mouse_keyb) "
             "FROM oees_incorporations WHERE incorporated = 0 AND descartado = 0"
         )
-        s = cur.fetchone() or [0] * 10
+        s = cur.fetchone() or [0] * 11
         needs_map = {
             "LAPTOP WIN": s[0], "LAPTOP MBA": s[1], "LAPTOP MBP": s[2], "KEYBOARD": s[3],
             "MOUSE": s[4], "SCREEN": s[5], "CORDED HEADSET": s[6], "CORDLESS HEADSET": s[7],
-            "USB-C HUB": s[8], "PHONE": s[9],
+            "USB-C HUB": s[8], "PHONE": s[9], "KIT TECLADO Y RATON": s[10],
         }
         for article, qty in needs_map.items():
             qty = int(qty or 0)

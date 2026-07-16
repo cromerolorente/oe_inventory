@@ -807,6 +807,43 @@ class IncorporationsScreenTests(TestCase):
         self.assertEqual(saved.mouse, 1)
         self.assertEqual(saved.left_mouse, 0)
 
+    def test_save_kit_clears_keyboard_and_mice(self):
+        # The Mouse+Keyboard Kit is exclusive with keyboard/mouse/left_mouse.
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_incorporations'), {
+            'action': 'save', 'name': 'Kit Hire', 'company': str(self.company.id_company),
+            'department': 'IT', 'delegation': str(self.deleg.id_delegation),
+            'insert_date': '2026-05-01', 'kit_mouse_keyb': '1',
+            'keyboard': '1', 'mouse': '1',
+        })
+        saved = OeesIncorporations.objects.get(name='Kit Hire')
+        self.assertEqual(saved.kit_mouse_keyb, 1)
+        self.assertEqual(saved.keyboard, 0)
+        self.assertEqual(saved.mouse, 0)
+        self.assertEqual(saved.left_mouse, 0)
+
+    def test_apply_pdf_kit_wins_over_keyboard_mouse(self):
+        from oe_inventory_py_web.reports import build_incorporation_form_pdf
+        from oe_inventory_py_web import incorporation_mail
+        rec = OeesIncorporations.objects.create(
+            name='Kit RT', department='IT', insert_date=date(2026, 3, 1),
+            company_id=self.company.id_company, delegation_id=self.deleg.id_delegation,
+            cordedh=0, cordlessh=0, usbchub=0, pdf=0, acad=0, mouse=1, left_mouse=0,
+            keyboard=1, phone=0, screen=0, incorporated=0, send=0, receive=0, descartado=0,
+        )
+        # A returned PDF where the candidate ticked the Kit (and, invalidly, also
+        # keyboard + a mouse): the kit must win and clear the others.
+        pdf = build_incorporation_form_pdf({
+            'id': rec.id, 'name': rec.name, 'kit_mouse_keyb': 1,
+            'keyboard': 1, 'mouse': 1,
+        })
+        self.assertTrue(incorporation_mail.apply_pdf(pdf, 'x@example.com'))
+        rec.refresh_from_db()
+        self.assertEqual(rec.kit_mouse_keyb, 1)
+        self.assertEqual(rec.keyboard, 0)
+        self.assertEqual(rec.mouse, 0)
+        self.assertEqual(rec.left_mouse, 0)
+
     def test_apply_pdf_unknown_id_is_ignored(self):
         from oe_inventory_py_web.reports import build_incorporation_form_pdf
         from oe_inventory_py_web import incorporation_mail
@@ -1086,6 +1123,18 @@ class AvailabilityScreenTests(TestCase):
         self.assertIn('LAPTOP WIN', rows)
         self.assertEqual(rows['LAPTOP WIN']['orders'], 2)
         self.assertEqual(rows['LAPTOP WIN']['stock'], 1)  # AV-1
+
+    def test_kit_counted_in_needs(self):
+        # A pending incorporation asking for the mouse+keyboard kit shows up as a
+        # Need under the 'KIT TECLADO Y RATON' article.
+        from oe_inventory_py_web.views import _availability_rows
+        OeesIncorporations.objects.create(
+            name='Kit Need', department='IT', insert_date=date(2026, 1, 1),
+            cordedh=0, cordlessh=0, usbchub=0, pdf=0, acad=0, incorporated=0,
+            send=0, receive=0, descartado=0, kit_mouse_keyb=1)
+        rows = {r['article']: r for r in _availability_rows()}
+        self.assertIn('KIT TECLADO Y RATON', rows)
+        self.assertEqual(rows['KIT TECLADO Y RATON']['needs'], 1)
 
     def test_availability_excel_export(self):
         # Only non-reader profiles can download the Excel export.

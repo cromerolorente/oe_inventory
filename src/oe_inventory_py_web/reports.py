@@ -455,6 +455,7 @@ def build_incorporation_form_pdf(data):
         ('chk_pdf', 'PDF', data.get('pdf')),
         ('chk_acad', 'ACAD', data.get('acad')),
         ('chk_keyboard', 'Keyboard', data.get('keyboard')),
+        ('chk_kit', 'Mouse + Keyboard Kit', data.get('kit_mouse_keyb')),
     ]
     col_x = [m, m + half + 12]
     size = 12

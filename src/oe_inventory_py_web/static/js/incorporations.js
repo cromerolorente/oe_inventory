@@ -17,12 +17,31 @@ function setCheck(id, on) {
     document.getElementById(id).checked = (on === 1 || on === true);
 }
 
-// Right Mouse and Left Mouse are mutually exclusive: checking one clears the other.
+// Right Mouse and Left Mouse are mutually exclusive: checking one clears the
+// other, and either one clears the Mouse+Keyboard Kit (incompatible).
 function onMouseToggle(which) {
     const right = document.getElementById('chk-mouse');
     const left = document.getElementById('chk-left-mouse');
     if (which === 'right' && right.checked) left.checked = false;
     if (which === 'left' && left.checked) right.checked = false;
+    if (right.checked || left.checked) document.getElementById('chk-kit').checked = false;
+}
+
+// Keyboard is incompatible with the Kit: checking Keyboard clears the Kit.
+function onKeyboardToggle() {
+    if (document.getElementById('chk-keyboard').checked) {
+        document.getElementById('chk-kit').checked = false;
+    }
+}
+
+// The Mouse+Keyboard Kit is exclusive with Keyboard / Right Mouse / Left Mouse:
+// checking the Kit clears all three.
+function onKitToggle() {
+    if (document.getElementById('chk-kit').checked) {
+        document.getElementById('chk-keyboard').checked = false;
+        document.getElementById('chk-mouse').checked = false;
+        document.getElementById('chk-left-mouse').checked = false;
+    }
 }
 
 function buscarIncorporacionAjax() {
@@ -59,6 +78,7 @@ function fillIncorporation(d) {
     setCheck('chk-screen', d.screen);
     setCheck('chk-mouse', d.mouse);
     setCheck('chk-left-mouse', d.left_mouse);
+    setCheck('chk-kit', d.kit_mouse_keyb);
     setCheck('chk-keyboard', d.keyboard);
     document.getElementById('select-sweatshirt').value = d.sweatshirt_size || '';
     setCheck('chk-descartado', d.descartado);
