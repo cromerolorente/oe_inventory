@@ -1407,6 +1407,7 @@ def frm_licenses_view(request):
         origin_options = [row[0] for row in cursor.fetchall()]
 
     grid = OeesLicenses.objects.select_related('company', 'persone').order_by('-id_license')
+    active = grid.exclude(persone__name='LICENCIAS CADUCADAS')  # non-expired licenses
 
     # Summary by type: Purchased = licenses of that type; Expired = those assigned
     # to the person "LICENCIAS CADUCADAS"; In Use = Purchased - Expired.
@@ -1433,6 +1434,9 @@ def frm_licenses_view(request):
         'license_summary': license_summary,
         'total_licenses': grid.count(),
         'total_value': grid.aggregate(total=Sum('value'))['total'] or 0,
+        # Non-expired ("in use") = not assigned to the special 'LICENCIAS CADUCADAS'.
+        'active_licenses': active.count(),
+        'active_value': active.aggregate(total=Sum('value'))['total'] or 0,
         'is_reader': _is_reader(user),
     }
     return render(request, 'oe_inventory_py_web/frmLicenses.html', context)
@@ -4293,6 +4297,31 @@ def _geocode_delegation(direccion, cpostal, poblacion, provincia_name):
 def frm_delegations_view(request):
     user = request.user
 
+    # Toggle the active/inactive state of the loaded delegation. Deactivating is
+    # blocked while any staff member is still assigned to it.
+    if request.method == 'POST' and request.POST.get('action') == 'toggle_active':
+        if _is_reader(user):
+            messages.error(request, "You have a reader profile and can't modify data.")
+            return redirect('frm_delegations')
+        code = request.POST.get('code', '').strip()
+        deleg = OeesDelegations.objects.filter(id_delegation=code).first() if code.isdigit() else None
+        if not deleg:
+            messages.error(request, "Load a delegation first.")
+            return redirect('frm_delegations')
+        deactivating = deleg.activo == 1
+        if deactivating and OeesStaff.objects.filter(
+                delegation_id=deleg.id_delegation, state=1).exists():
+            messages.error(request, "This delegation can't be deactivated: there are active "
+                                    "Staff members assigned to it.")
+            return redirect(f"{reverse('frm_delegations')}?delegation={code}")
+        now = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        new_state = 'Inactive' if deactivating else 'Active'
+        deleg.activo = 0 if deactivating else 1
+        deleg.notes = f"{now} - State changed to {new_state} by {user.username}\n{deleg.notes or ''}".strip()
+        deleg.save(update_fields=['activo', 'notes'])
+        messages.success(request, f"Delegation state changed to {new_state}.")
+        return redirect(f"{reverse('frm_delegations')}?delegation={code}")
+
     # Force re-geocoding of the loaded delegation using the address on screen.
     if request.method == 'POST' and request.POST.get('action') == 'geocode':
         if _is_reader(user):
@@ -4420,6 +4449,9 @@ def api_get_delegation(request):
         'id': d.id_delegation, 'delegation': d.delegation or '', 'direccion': d.direccion or '',
         'cpostal': d.cpostal or '', 'poblacion': d.poblacion or '', 'provincia': d.provincia_id or '',
         'notes': d.notes or '',
+        'activo': d.activo,
+        'staff_assigned': OeesStaff.objects.filter(
+            delegation_id=d.id_delegation, state=1).exists(),
     }
     return JsonResponse({'success': True, 'exists': True, 'data': data})
 
@@ -4851,7 +4883,7 @@ def anydesk_diag(request):
         return '(could not determine)'
 
     user_agent = 'OE-Inventory/1.0 (automation)'  # identical to anydesk.py
-    url = settings.ANYDESK_API_URL.rstrip('/') + '/api/v2/clients?limit=200&offset=0'
+    url = settings.ANYDESK_API_URL.rstrip('/') + '/v2/api/v2/clients?limit=200&offset=0'
     lines = [
         f"Public egress IP : {public_ip()}",
         f"Request URL      : {url}",

@@ -4,6 +4,10 @@
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+    /* Inactive delegations (activo = 0) are shown in red. */
+    tr.deleg-inactive > td { color: #dc3545 !important; }
+</style>
 <div class="container-fluid py-3 bg-light min-vh-100 app-surface">
 
     <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
@@ -68,6 +72,9 @@
                         <button type="button" class="btn p-0 border-0" title="Clear form" onclick="limpiarDelegacion()">
                             <img src="/static/buttons/clear.png" alt="Clear" style="width: 24px; height: 24px;">
                         </button>
+                        <button type="button" class="btn p-0 border-0" title="Activate / deactivate this delegation" onclick="cambiarEstadoDelegacion()">
+                            <i class="bi bi-toggle-on" style="font-size: 22px; color: #FF48D8;"></i>
+                        </button>
                         <button type="button" class="btn p-0 border-0" title="Geolocate this delegation on the map" onclick="geolocalizarDelegacion()">
                             <i class="bi bi-geo-alt-fill" style="font-size: 22px; color: #FF48D8;"></i>
                         </button>
@@ -89,7 +96,7 @@
                         </thead>
                         <tbody>
                             {% for d in grid_rows %}
-                            <tr class="delegation-row" style="cursor: pointer;" data-id="{{ d.id_delegation }}">
+                            <tr class="delegation-row{% if d.activo == 0 %} deleg-inactive{% endif %}" style="cursor: pointer;" data-id="{{ d.id_delegation }}">
                                 <td>{{ d.id_delegation }}</td>
                                 <td>{{ d.delegation }}</td>
                                 <td>{{ d.direccion|default:'' }}</td>
@@ -118,7 +125,7 @@
 {{ map_points|json_script:"delegations-map-data" }}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="{% static 'js/delegations.js' %}?v=20260610pins"></script>
+<script src="{% static 'js/delegations.js' %}?v=20260717toggle"></script>
 
 {# SweetAlert2 (Swal) is loaded once in base_mdi.html; this runs on DOMContentLoaded, after it. #}
 {% if messages %}

@@ -118,13 +118,29 @@
             </div>
 
             <div class="col-xl-3 col-lg-6 col-md-12">
-                <div class="card text-white text-end p-2 mb-2 shadow-sm">
-                    <div class="small text-muted text-uppercase">Total Licenses</div>
-                    <h3 class="mb-0 text-info fw-bold">{{ total_licenses|default:0|intcomma }}</h3>
+                <div class="card text-end p-2 mb-2 shadow-sm">
+                    <div class="d-flex">
+                        <div class="w-50 border-end pe-2">
+                            <div class="small text-muted text-uppercase">Total Licenses</div>
+                            <h4 class="mb-0 fw-bold text-dark">{{ total_licenses|default:0|intcomma }}</h4>
+                        </div>
+                        <div class="w-50 ps-2">
+                            <div class="small text-muted text-uppercase">In Use</div>
+                            <h4 class="mb-0 fw-bold text-info">{{ active_licenses|default:0|intcomma }}</h4>
+                        </div>
+                    </div>
                 </div>
-                <div class="card text-white text-end p-2 mb-2 shadow-sm">
-                    <div class="small text-muted text-uppercase">Total Value</div>
-                    <h3 class="mb-0 text-info fw-bold">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h3>
+                <div class="card text-end p-2 mb-2 shadow-sm">
+                    <div class="d-flex">
+                        <div class="w-50 border-end pe-2">
+                            <div class="small text-muted text-uppercase">Total Value</div>
+                            <h4 class="mb-0 fw-bold text-dark">{{ total_value|floatformat:2|intcomma|default:"0,00" }} €</h4>
+                        </div>
+                        <div class="w-50 ps-2">
+                            <div class="small text-muted text-uppercase">In Use</div>
+                            <h4 class="mb-0 fw-bold text-info">{{ active_value|floatformat:2|intcomma|default:"0,00" }} €</h4>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card shadow-sm p-3 bg-white">
@@ -169,7 +185,7 @@
                                 <td>{% if item.company %}{{ item.company.name }}{% endif %}</td>
                                 <td>{{ item.type|default:'-' }}</td>
                                 <td>{{ item.origin|default:'-' }}</td>
-                                <td>{{ item.insert_date|date:'d-m-Y' }}</td>
+                                <td data-order="{{ item.insert_date|date:'Y-m-d' }}">{{ item.insert_date|date:'d-m-Y' }}</td>
                                 <td>{% if item.persone %}{{ item.persone.name }}{% else %}-{% endif %}</td>
                                 <td>{{ item.obs|default:'-' }}</td>
                                 <td class="text-end">{{ item.value|default:'0' }} €</td>

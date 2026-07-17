@@ -26,6 +26,10 @@ function buscarDelegacionAjax() {
         .catch(err => console.error('Error fetching delegation:', err));
 }
 
+// State of the currently loaded delegation, used by the activate/deactivate button.
+let loadedActivo = null;
+let loadedStaffAssigned = false;
+
 function fillDelegation(d) {
     document.getElementById('input-code').value = d.id;
     document.getElementById('input-delegation').value = d.delegation || '';
@@ -34,6 +38,8 @@ function fillDelegation(d) {
     document.getElementById('input-poblacion').value = d.poblacion || '';
     document.getElementById('input-provincia').value = d.provincia || '';
     document.getElementById('textarea-notes').value = d.notes || '';
+    loadedActivo = d.activo;
+    loadedStaffAssigned = !!d.staff_assigned;
     syncCode();
 }
 
@@ -41,6 +47,8 @@ function limpiarDelegacion() {
     document.getElementById('form-delegation').reset();
     document.getElementById('input-code').value = '';
     document.getElementById('textarea-notes').value = '';
+    loadedActivo = null;
+    loadedStaffAssigned = false;
     syncCode();
     document.querySelectorAll('.delegation-row').forEach(r => r.classList.remove('table-primary'));
 }
@@ -66,6 +74,25 @@ function geolocalizarDelegacion() {
     }
     syncCode();
     setDelegationAction('geocode');
+    document.getElementById('form-delegation').submit();
+}
+
+// Activate/deactivate the loaded delegation. Deactivating is blocked when there
+// are Staff members assigned; otherwise it asks for confirmation.
+function cambiarEstadoDelegacion() {
+    if (!currentCode()) {
+        Swal.fire({ title: 'OE Inventory', text: 'Load a delegation first.', icon: 'info', confirmButtonColor: '#FF48D8' });
+        return;
+    }
+    const deactivating = (Number(loadedActivo) === 1);
+    if (deactivating && loadedStaffAssigned) {
+        Swal.fire({ title: 'OE Inventory', text: "This delegation can't be deactivated: there are Staff members assigned to it.", icon: 'error', confirmButtonColor: '#FF48D8' });
+        return;
+    }
+    const msg = deactivating ? 'Deactivate this delegation?' : 'Reactivate this delegation?';
+    if (!confirm(msg)) return;
+    syncCode();
+    setDelegationAction('toggle_active');
     document.getElementById('form-delegation').submit();
 }
 

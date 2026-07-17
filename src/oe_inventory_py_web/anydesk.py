@@ -1,9 +1,9 @@
 """Client for the AnyDesk REST API (my.anydesk II, API v2).
 
 Used to find out whether the remote machines listed in oees_anydesk are online.
-``GET /api/v2/clients`` returns every client (paginated) with its online
+``GET /v2/api/v2/clients`` returns every client (paginated) with its online
 ``state``, which we match against each row's ``code`` (the AnyDesk address /
-client id, i.e. the API's ``cid``).
+client id, i.e. the API's ``cid``). Endpoint path per AnyDesk support (2026-07).
 
 Auth is a single static token sent in the ``X-Api-Token`` header (the "API
 password" generated in the my.anydesk II console). Credentials come from the
@@ -95,13 +95,13 @@ def _request(path):
 
 def online_map():
     """Map AnyDesk client id (str) -> True/False (online) for every client in the
-    account. Walks the paginated ``GET /api/v2/clients`` listing. Raises
+    account. Walks the paginated ``GET /v2/api/v2/clients`` listing. Raises
     AnydeskError on connectivity/auth problems."""
     result = {}
     offset = 0
     try:
         while True:
-            path = f"/api/v2/clients?limit={_PAGE_LIMIT}&offset={offset}"
+            path = f"/v2/api/v2/clients?limit={_PAGE_LIMIT}&offset={offset}"
             data = _request(path)
             items = data.get('items') or []
             for c in items:

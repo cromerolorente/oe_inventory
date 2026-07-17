@@ -235,6 +235,18 @@ class LicensesScreenTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'oe_inventory_py_web/frmLicenses.html')
 
+    def test_active_totals_exclude_expired(self):
+        from oe_inventory_py_web.models import OeesStaff
+        caducadas = OeesStaff.objects.create(name='LICENCIAS CADUCADAS', persona_fisica=1, notes='', state=1)
+        OeesLicenses.objects.create(serial_number='LIC-EXP', type='Office', value=50.0,
+                                    obs='', persone=caducadas)
+        self.client.force_login(self.user)
+        ctx = self.client.get(reverse('frm_licenses')).context
+        self.assertEqual(ctx['total_licenses'], 2)       # LIC-1 + LIC-EXP
+        self.assertEqual(ctx['total_value'], 149.0)
+        self.assertEqual(ctx['active_licenses'], 1)       # only LIC-1
+        self.assertEqual(ctx['active_value'], 99.0)
+
     def test_license_summary_by_type(self):
         from oe_inventory_py_web.models import OeesStaff
         expired = OeesStaff.objects.create(name='LICENCIAS CADUCADAS', persona_fisica=1, notes='', state=1)
@@ -1321,6 +1333,48 @@ class DelegationsScreenTests(TestCase):
         d = OeesDelegations.objects.get(delegation='Branch Office', poblacion='Madrid')
         self.assertEqual(d.latitude, 40.4168)   # geocoded coordinates stored
         self.assertEqual(d.longitude, -3.7038)
+
+    def test_toggle_active_blocked_when_active_staff_assigned(self):
+        OeesStaff.objects.create(name='Emp', notes='', persona_fisica=1,
+                                 delegation=self.deleg, state=1)
+        self.client.force_login(self.user)
+        resp = self.client.post(reverse('frm_delegations'),
+                                {'action': 'toggle_active', 'code': str(self.deleg.id_delegation)})
+        self.assertEqual(resp.status_code, 302)
+        self.deleg.refresh_from_db()
+        self.assertEqual(self.deleg.activo, 1)  # unchanged
+        msgs = [m.message for m in get_messages(resp.wsgi_request)]
+        self.assertTrue(any('Staff' in m for m in msgs))
+
+    def test_toggle_active_ignores_inactive_staff(self):
+        # A terminated (state=0) staff member assigned to the delegation must NOT
+        # block deactivation.
+        OeesStaff.objects.create(name='Ex', notes='', persona_fisica=1,
+                                 delegation=self.deleg, state=0)
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_delegations'),
+                         {'action': 'toggle_active', 'code': str(self.deleg.id_delegation)})
+        self.deleg.refresh_from_db()
+        self.assertEqual(self.deleg.activo, 0)  # deactivated despite the inactive staff
+
+    def test_toggle_active_deactivates_and_notes(self):
+        self.client.force_login(self.user)
+        resp = self.client.post(reverse('frm_delegations'),
+                                {'action': 'toggle_active', 'code': str(self.deleg.id_delegation)})
+        self.assertEqual(resp.status_code, 302)
+        self.deleg.refresh_from_db()
+        self.assertEqual(self.deleg.activo, 0)
+        self.assertIn('State changed to Inactive by dl_user', self.deleg.notes)
+
+    def test_toggle_active_reactivates(self):
+        self.deleg.activo = 0
+        self.deleg.save(update_fields=['activo'])
+        self.client.force_login(self.user)
+        self.client.post(reverse('frm_delegations'),
+                         {'action': 'toggle_active', 'code': str(self.deleg.id_delegation)})
+        self.deleg.refresh_from_db()
+        self.assertEqual(self.deleg.activo, 1)
+        self.assertIn('State changed to Active by dl_user', self.deleg.notes)
 
     def test_map_includes_geocoded_delegation(self):
         # A delegation with coordinates must appear in the map data on the page.
